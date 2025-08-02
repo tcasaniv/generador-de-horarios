@@ -1879,7 +1879,7 @@ const EscuelaView: React.FC<{
             extraProps?: object;
         } = {}
     ) => {
-        const { compareFn = (v: any) => v, className = "p-1 border dark:border-gray-600 align-middle", extraProps = {} } = options;
+        const { compareFn = (v: any) => v, className = "p-1 border dark:border-gray-600 align-middle text-center", extraProps = {} } = options;
         const get = (obj: any, path: string): any => path.split('.').reduce((p, c) => (p && typeof p === 'object' && c in p) ? p[c] : undefined, obj);
     
         const currentValue = compareFn(get(row, dataPath));
@@ -1920,7 +1920,7 @@ const EscuelaView: React.FC<{
                 <thead className="bg-gray-100 dark:bg-gray-700">
                     <tr>
                         {['', 'COMP.', 'CODIGO', 'NOMBRE ASIGNATURA', 'DPTO. ACADÉMICO', 'CRED.', 'GRUPO', 'NOMBRE DEL DOCENTE', 'TOTAL HORAS', 'HT', 'HP', 'HL', 'HS', 'MODO ENSEÑANZA', 'AFORO', 'CODIGO SUNEDU', 'CODIGO INV.', 'NOMBRE AMBIENTE', 'Horario', ...DAYS_OF_WEEK].map(h => (
-                            <th key={h} className="p-2 border dark:border-gray-600 font-medium text-gray-500 dark:text-gray-300 whitespace-nowrap">{h}</th>
+                            <th key={h} className="p-2 border dark:border-gray-600 font-medium text-gray-500 dark:text-gray-300 whitespace-nowrap text-center">{h}</th>
                         ))}
                     </tr>
                 </thead>
@@ -1978,7 +1978,7 @@ const EscuelaView: React.FC<{
                                 
                                 {renderMergedCell(index, row, 'teacher', teacherDisplay, {
                                     compareFn: compareById,
-                                    className: `p-1 border dark:border-gray-600 align-middle ${!isDummy ? 'cursor-pointer' : ''}`,
+                                    className: `p-1 border dark:border-gray-600 align-middle text-center ${!isDummy ? 'cursor-pointer' : ''}`,
                                     extraProps: !isDummy ? { onDoubleClick: () => setEditingCell(`${id}-teacherId`) } : {}
                                 })}
                                 
@@ -1988,7 +1988,7 @@ const EscuelaView: React.FC<{
                                 {renderMergedCell(index, row, 'course', course?.labHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
                                 {renderMergedCell(index, row, 'course', course?.seminarHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
 
-                                {renderMergedCell(index, row, 'subGroupAssignment.teachingMode', subGroupAssignment?.teachingMode ?? 'Presencial', { compareFn: compareByValue, className: "p-1 border dark:border-gray-600 align-middle" })}
+                                {renderMergedCell(index, row, 'subGroupAssignment.teachingMode', subGroupAssignment?.teachingMode ?? 'Presencial', { compareFn: compareByValue, className: "p-1 border dark:border-gray-600 align-middle text-center" })}
                                 
                                 {renderMergedCell(index, row, 'room', room?.capacity || '-', { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
                                 {renderMergedCell(index, row, 'room', room?.suneduCode || '-', { compareFn: compareById })}
@@ -1996,7 +1996,7 @@ const EscuelaView: React.FC<{
                                 
                                 {renderMergedCell(index, row, 'room', roomDisplay, {
                                     compareFn: compareById,
-                                    className: `p-1 border dark:border-gray-600 align-middle ${!isDummy ? 'cursor-pointer' : ''}`,
+                                    className: `p-1 border dark:border-gray-600 align-middle text-center ${!isDummy ? 'cursor-pointer' : ''}`,
                                     extraProps: !isDummy ? { onDoubleClick: () => setEditingCell(`${id}-roomId`) } : {}
                                 })}
 

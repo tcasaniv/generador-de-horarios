@@ -512,19 +512,6 @@ function App() {
     };
 
     // --- UI Render ---
-    const renderContent = () => {
-        switch (activeTab) {
-            case Tab.ASIGNATURAS: return <AsignaturasView courses={courses} onDelete={(id) => handleDelete('courses', id)} openModal={(data) => setModalState({ type: 'course', data })} onImport={(e) => handleImport(e, 'courses')} setCourses={(c) => setState(prev => ({...prev, courses: typeof c === 'function' ? c(prev.courses) : c}))} />;
-            case Tab.ROOMS: return <RoomsView rooms={rooms} onDelete={(id) => handleDelete('rooms', id)} openModal={(data) => setModalState({ type: 'room', data })} onImport={(e) => handleImport(e, 'rooms')} />;
-            case Tab.TEACHERS: return <TeachersView teachers={teachers} workload={teacherWorkload} onDelete={(id) => handleDelete('teachers', id)} openModal={(data) => setModalState({ type: 'teacher', data })} onImport={(e) => handleImport(e, 'teachers')} />;
-            case Tab.STUDENT_GROUPS: return <StudentGroupsView studentGroups={studentGroups} onDelete={(id) => handleDelete('studentGroups', id)} openModal={(data) => setModalState({ type: 'studentGroup', data })} onImport={(e) => handleImport(e, 'studentGroups')} />;
-            case Tab.SEMESTER_PLAN: return <SemesterPlanView courses={courses} teachers={teachers} rooms={rooms} semesterPlan={semesterPlan} setSemesterPlan={handleSemesterPlanUpdate} onDeleteGroup={handleDeleteSemesterGroup} onImport={(e) => handleImport(e, 'semesterPlan')} openModal={(type, data) => setModalState({ type, data })} />;
-            case Tab.TIMETABLE: return <TimetableView state={state} onMoveEntry={handleMoveEntry} onTogglePin={togglePinEntry} onScheduleUpdate={handleScheduleUpdate} unscheduledUnits={unscheduledUnits} setUnscheduledUnits={setUnscheduledUnits} teacherWorkload={teacherWorkload} openEntryCreator={handleOpenEntryCreator} openEntryEditor={handleOpenEntryEditor} />;
-            case Tab.ATTENDANCE_REPORT: return <AttendanceReportView state={state}/>;
-            default: return <div>Seleccione una pestaña</div>;
-        }
-    };
-
     const renderModals = () => {
         if (!modalState.type) return null;
 
@@ -714,7 +701,27 @@ function App() {
                             <p className="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-200">Procesando horario...</p>
                         </div>
                     )}
-                    {renderContent()}
+                    <div style={{ display: activeTab === Tab.ASIGNATURAS ? 'block' : 'none' }}>
+                        <AsignaturasView courses={courses} onDelete={(id) => handleDelete('courses', id)} openModal={(data) => setModalState({ type: 'course', data })} onImport={(e) => handleImport(e, 'courses')} setCourses={(c) => setState(prev => ({...prev, courses: typeof c === 'function' ? c(prev.courses) : c}))} />
+                    </div>
+                    <div style={{ display: activeTab === Tab.ROOMS ? 'block' : 'none' }}>
+                         <RoomsView rooms={rooms} onDelete={(id) => handleDelete('rooms', id)} openModal={(data) => setModalState({ type: 'room', data })} onImport={(e) => handleImport(e, 'rooms')} />
+                    </div>
+                    <div style={{ display: activeTab === Tab.TEACHERS ? 'block' : 'none' }}>
+                         <TeachersView teachers={teachers} workload={teacherWorkload} onDelete={(id) => handleDelete('teachers', id)} openModal={(data) => setModalState({ type: 'teacher', data })} onImport={(e) => handleImport(e, 'teachers')} />
+                    </div>
+                    <div style={{ display: activeTab === Tab.STUDENT_GROUPS ? 'block' : 'none' }}>
+                         <StudentGroupsView studentGroups={studentGroups} onDelete={(id) => handleDelete('studentGroups', id)} openModal={(data) => setModalState({ type: 'studentGroup', data })} onImport={(e) => handleImport(e, 'studentGroups')} />
+                    </div>
+                    <div style={{ display: activeTab === Tab.SEMESTER_PLAN ? 'block' : 'none' }}>
+                         <SemesterPlanView courses={courses} teachers={teachers} rooms={rooms} semesterPlan={semesterPlan} setSemesterPlan={handleSemesterPlanUpdate} onDeleteGroup={handleDeleteSemesterGroup} onImport={(e) => handleImport(e, 'semesterPlan')} openModal={(type, data) => setModalState({ type, data })} />
+                    </div>
+                    <div style={{ display: activeTab === Tab.TIMETABLE ? 'block' : 'none' }}>
+                         <TimetableView state={state} onMoveEntry={handleMoveEntry} onTogglePin={togglePinEntry} onScheduleUpdate={handleScheduleUpdate} unscheduledUnits={unscheduledUnits} setUnscheduledUnits={setUnscheduledUnits} teacherWorkload={teacherWorkload} openEntryCreator={handleOpenEntryCreator} openEntryEditor={handleOpenEntryEditor} />
+                    </div>
+                    <div style={{ display: activeTab === Tab.ATTENDANCE_REPORT ? 'block' : 'none' }}>
+                        <AttendanceReportView state={state}/>
+                    </div>
                 </main>
                 
                 {renderModals()}
@@ -1461,7 +1468,10 @@ const TimetableView: React.FC<{
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex justify-between items-center noprint">
                 <div className="flex items-center space-x-4">
                     <label htmlFor="view-type" className="font-medium">Ver por:</label>
-                    <select id="view-type" value={viewType} onChange={e => setViewType(e.target.value as any)} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
+                    <select id="view-type" value={viewType} onChange={e => {
+                        setViewType(e.target.value as any);
+                        setSelectedId(null); // Reset selection when changing view type
+                    }} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
                         <option value="escuela">Escuela</option>
                         <option value="teacher">Docente</option>
                         <option value="room">Ambiente</option>

@@ -1589,10 +1589,49 @@ const ScheduleGrid: React.FC<{
     onOpenCreator: (day: Day, timeSlot: number) => void;
     onOpenEditor: (entry: ScheduleEntry) => void;
 }> = ({ entries, allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor }) => {
-    const entriesByTimeSlot = useMemo(() => {
-        const grid: { [key: string]: ScheduleEntry | null } = {};
+    const gridData = useMemo(() => {
+        const grid: { [key: string]: { entry: ScheduleEntry; rowSpan: number } | 'merged' | null } = {};
+
+        const isMergeable = (entry1: ScheduleEntry, entry2: ScheduleEntry) => {
+            return (
+                entry1.courseId === entry2.courseId &&
+                entry1.studentGroupId === entry2.studentGroupId &&
+                entry1.teacherId === entry2.teacherId &&
+                entry1.roomId === entry2.roomId &&
+                entry1.sessionType === entry2.sessionType
+            );
+        };
+
+        const entriesMap: { [key: string]: ScheduleEntry } = {};
         for (const entry of entries) {
-            grid[`${entry.day}-${entry.timeSlot}`] = entry;
+            entriesMap[`${entry.day}-${entry.timeSlot}`] = entry;
+        }
+
+        for (const day of DAYS_OF_WEEK) {
+            for (let timeIndex = 0; timeIndex < TIME_SLOTS.length; timeIndex++) {
+                const key = `${day}-${timeIndex}`;
+                if (grid[key] === 'merged') {
+                    continue;
+                }
+
+                const entry = entriesMap[key];
+                if (entry) {
+                    let rowSpan = 1;
+                    // Look ahead for mergeable entries
+                    for (let nextTimeIndex = timeIndex + 1; nextTimeIndex < TIME_SLOTS.length; nextTimeIndex++) {
+                        const nextEntry = entriesMap[`${day}-${nextTimeIndex}`];
+                        if (nextEntry && isMergeable(entry, nextEntry)) {
+                            rowSpan++;
+                            grid[`${day}-${nextTimeIndex}`] = 'merged';
+                        } else {
+                            break; // Stop when we find a non-mergeable slot
+                        }
+                    }
+                    grid[key] = { entry, rowSpan };
+                } else {
+                    grid[key] = null;
+                }
+            }
         }
         return grid;
     }, [entries]);
@@ -1611,10 +1650,26 @@ const ScheduleGrid: React.FC<{
                 <tbody>
                     {TIME_SLOTS.map((slot, timeIndex) => (
                         <tr key={slot}>
-                            <td className="p-1 border dark:border-gray-600 text-center text-xs font-semibold bg-gray-50 dark:bg-gray-700">{slot}</td>
-                            {DAYS_OF_WEEK.map(day => (
-                                <TimeSlotCell key={day} day={day} timeSlot={timeIndex} entry={entriesByTimeSlot[`${day}-${timeIndex}`] || null} {...{allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor}}/>
-                            ))}
+                            <td className="p-1 border dark:border-gray-600 text-center text-xs font-semibold bg-gray-50 dark:bg-gray-700 h-20">{slot}</td>
+                            {DAYS_OF_WEEK.map(day => {
+                                const cellData = gridData[`${day}-${timeIndex}`];
+                                if (cellData === 'merged') {
+                                    return null;
+                                }
+                                const entry = cellData ? cellData.entry : null;
+                                const rowSpan = cellData ? cellData.rowSpan : 1;
+                                
+                                return (
+                                    <TimeSlotCell
+                                        key={day}
+                                        day={day}
+                                        timeSlot={timeIndex}
+                                        entry={entry}
+                                        rowSpan={rowSpan}
+                                        {...{ allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor }}
+                                    />
+                                );
+                            })}
                         </tr>
                     ))}
                 </tbody>
@@ -1627,6 +1682,7 @@ const TimeSlotCell: React.FC<{
     day: Day;
     timeSlot: number;
     entry: ScheduleEntry | null;
+    rowSpan: number;
     allCourses: Course[];
     allTeachers: Teacher[];
     allRooms: Room[];
@@ -1634,7 +1690,7 @@ const TimeSlotCell: React.FC<{
     onTogglePin: (entryId: string) => void;
     onOpenCreator: (day: Day, timeSlot: number) => void;
     onOpenEditor: (entry: ScheduleEntry) => void;
-}> = ({ day, timeSlot, entry, allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor }) => {
+}> = ({ day, timeSlot, entry, rowSpan, allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor }) => {
     const [, drop] = useDrop(() => ({
         accept: 'SCHEDULE_ENTRY',
         drop: (item: { id: string }) => onMoveEntry(item.id, day, timeSlot),
@@ -1649,7 +1705,7 @@ const TimeSlotCell: React.FC<{
     };
 
     return (
-        <td ref={drop as any} onDoubleClick={handleDoubleClick} className="p-0.5 border dark:border-gray-600 h-20 w-40 align-middle relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
+        <td ref={drop as any} onDoubleClick={handleDoubleClick} rowSpan={rowSpan} className="p-0.5 border dark:border-gray-600 w-40 align-middle relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
             {entry && <ScheduleCard entry={entry} allCourses={allCourses} allTeachers={allTeachers} allRooms={allRooms} onTogglePin={onTogglePin} onDoubleClick={() => onOpenEditor(entry)} />}
         </td>
     );

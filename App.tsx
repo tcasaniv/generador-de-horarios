@@ -1650,7 +1650,7 @@ const ScheduleGrid: React.FC<{
                 <tbody>
                     {TIME_SLOTS.map((slot, timeIndex) => (
                         <tr key={slot}>
-                            <td className="p-1 border dark:border-gray-600 text-center text-xs font-semibold bg-gray-50 dark:bg-gray-700 h-20">{slot}</td>
+                            <td className="p-1 border dark:border-gray-600 text-center text-xs font-semibold bg-gray-50 dark:bg-gray-700 h-5">{slot}</td>
                             {DAYS_OF_WEEK.map(day => {
                                 const cellData = gridData[`${day}-${timeIndex}`];
                                 if (cellData === 'merged') {
@@ -1705,7 +1705,7 @@ const TimeSlotCell: React.FC<{
     };
 
     return (
-        <td ref={drop as any} onDoubleClick={handleDoubleClick} rowSpan={rowSpan} className="p-0.5 border dark:border-gray-600 w-40 align-middle relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
+        <td ref={drop as any} onDoubleClick={handleDoubleClick} rowSpan={rowSpan} className="p-0.5 border dark:border-gray-600 w-60 align-middle relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
             {entry && <ScheduleCard entry={entry} allCourses={allCourses} allTeachers={allTeachers} allRooms={allRooms} onTogglePin={onTogglePin} onDoubleClick={() => onOpenEditor(entry)} />}
         </td>
     );

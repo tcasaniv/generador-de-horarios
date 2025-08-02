@@ -1688,10 +1688,10 @@ const ScheduleCard: React.FC<{
 
     return (
         <div ref={drag as any} onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(entry); }} className={`p-1.5 rounded-md h-full text-xs shadow-sm cursor-grab ${sessionTypeColors[entry.sessionType]} ${isDragging ? 'opacity-50' : ''}`}>
-            <div className="font-bold text-gray-800 dark:text-gray-100">{course?.name || entry.courseId}</div>
-            <div className="text-gray-600 dark:text-gray-300">{`Grupo ${entry.studentGroupId.split('-')[1]}`}</div>
-            <div className="text-gray-600 dark:text-gray-400 truncate">{teacherShortName}</div>
-            <div className="text-gray-500 dark:text-gray-400 font-semibold">{room?.name || 'N/A'}</div>
+            <div className="font-bold text-gray-800 dark:text-gray-100 text-center">{course?.name || entry.courseId}</div>
+            <div className="text-gray-600 dark:text-gray-300 text-center">{`Grupo ${entry.studentGroupId.split('-')[1]}`}</div>
+            <div className="text-gray-600 dark:text-gray-400 truncate text-center">{teacherShortName}</div>
+            <div className="text-gray-500 dark:text-gray-400 font-semibold text-center">{room?.name || 'N/A'}</div>
             <button onClick={(e) => { e.stopPropagation(); onTogglePin(entry.id); }} className="absolute top-1 right-1 p-0.5 rounded-full hover:bg-black/10">
                 <Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-3 h-3 ${entry.isPinned ? 'text-rose-600' : 'text-gray-500'}`} />
             </button>

@@ -1727,7 +1727,6 @@ const EscuelaView: React.FC<{
             const plan = semesterPlan.find(p => p.courseId === courseId);
             const group = plan?.groups.find(g => g.group === groupLetter);
             const studentGroup = studentGroups.find(sg => sg.year === getCourseYear(courseId) && sg.group === groupLetter);
-            
             const subGroupAssignment = group?.[entry.sessionType]?.[parseInt(subGroupNumStr, 10) - 1];
 
             rows.push({
@@ -1811,6 +1810,50 @@ const EscuelaView: React.FC<{
 
         return rows;
     }, [schedule, courses, teachers, rooms, studentGroups, semesterPlan]);
+    
+    // --- Helper function for cell merging ---
+    const renderMergedCell = (
+        index: number,
+        row: any,
+        dataPath: string,
+        displayValue: React.ReactNode,
+        options: {
+            compareFn?: (v: any) => any;
+            className?: string;
+            extraProps?: object;
+        } = {}
+    ) => {
+        const { compareFn = (v: any) => v, className = "p-1 border dark:border-gray-600 align-top", extraProps = {} } = options;
+        const get = (obj: any, path: string): any => path.split('.').reduce((p, c) => (p && typeof p === 'object' && c in p) ? p[c] : undefined, obj);
+    
+        const currentValue = compareFn(get(row, dataPath));
+    
+        const prevRow = index > 0 ? scheduleData[index - 1] : null;
+        if (prevRow) {
+            const prevValue = compareFn(get(prevRow, dataPath));
+            if (prevValue === currentValue) {
+                return null; // This cell is merged with the one above
+            }
+        }
+    
+        let rowSpan = 1;
+        for (let i = index + 1; i < scheduleData.length; i++) {
+            const nextRow = scheduleData[i];
+            const nextValue = compareFn(get(nextRow, dataPath));
+            if (nextValue === currentValue) {
+                rowSpan++;
+            } else {
+                break;
+            }
+        }
+    
+        return (
+            <td rowSpan={rowSpan} className={className} {...extraProps}>
+                {displayValue}
+            </td>
+        );
+    };
+
 
     return (
         <div className="overflow-x-auto">
@@ -1823,63 +1866,87 @@ const EscuelaView: React.FC<{
                     </tr>
                 </thead>
                 <tbody>
-                    {scheduleData.map(({id, entry, course, teacher, room, studentGroup, subGroupAssignment}) => {
+                    {scheduleData.map((row, index) => {
+                        const {id, entry, course, teacher, room, studentGroup, subGroupAssignment} = row;
                         const workload = teacher ? teacherWorkload[teacher.id] : null;
                         const isDummy = id.startsWith('dummy_');
                         
+                        // Define compare functions
+                        const compareById = (v: any) => v?.id;
+                        const compareByName = (v: any) => v?.name;
+                        const compareByValue = (v: any) => v;
+                        const compareByArray = (v: any) => JSON.stringify(v);
+                        const compareByGroup = (v: string) => v ? v.split('-')[1] : '';
+
+                        // Define editable cell content
+                        const teacherDisplay = editingCell === `${id}-teacherId` && !isDummy ? (
+                            <select
+                                value={entry.teacherId || ''}
+                                onChange={(e) => handleCellUpdate(id, 'teacherId', e.target.value)}
+                                onBlur={() => setEditingCell(null)}
+                                autoFocus
+                                className="w-full bg-transparent border-0 focus:ring-0 p-0 dark:bg-gray-700"
+                            >
+                                <option value="">Sin Asignar</option>
+                                {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                        ) : (teacher?.name || 'Sin Asignar');
+                        
+                        const roomDisplay = editingCell === `${id}-roomId` && !isDummy ? (
+                             <select
+                                value={entry.roomId || ''}
+                                onChange={(e) => handleCellUpdate(id, 'roomId', e.target.value)}
+                                onBlur={() => setEditingCell(null)}
+                                autoFocus
+                                className="w-full bg-transparent border-0 focus:ring-0 p-0 dark:bg-gray-700"
+                            >
+                                 {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                            </select>
+                        ) : (room?.name || 'Por asignar');
+
                         return (
-                            <tr key={id} className="dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td className="p-1 border dark:border-gray-600 text-center">
+                             <tr key={id} className="dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="p-1 border dark:border-gray-600 text-center align-top">
                                     {!isDummy && <button onClick={() => onTogglePin(entry.id)}><Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-4 h-4 ${entry.isPinned ? 'text-rose-500' : 'text-gray-400'}`} /></button>}
                                 </td>
-                                <td className="p-1 border dark:border-gray-600">{course?.competencia || '-'}</td>
-                                <td className="p-1 border dark:border-gray-600">{course?.id}</td>
-                                <td className="p-1 border dark:border-gray-600">{course?.name}</td>
-                                <td className="p-1 border dark:border-gray-600">{course?.academicDepartments?.join(', ') || '-'}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.credits}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{entry.studentGroupId.split('-')[1]}</td>
-                                <td onDoubleClick={() => !isDummy && setEditingCell(`${entry.id}-teacherId`)} className={`p-1 border dark:border-gray-600 ${!isDummy ? 'cursor-pointer' : ''}`}>
-                                    {editingCell === `${entry.id}-teacherId` && !isDummy ? (
-                                        <select
-                                            value={entry.teacherId || ''}
-                                            onChange={(e) => handleCellUpdate(entry.id, 'teacherId', e.target.value)}
-                                            onBlur={() => setEditingCell(null)}
-                                            autoFocus
-                                            className="w-full bg-transparent border-0 focus:ring-0 p-0 dark:bg-gray-700"
-                                        >
-                                            <option value="">Sin Asignar</option>
-                                            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
-                                    ) : (teacher?.name || 'Sin Asignar')}
-                                </td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{workload?.total || 0}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.theoryHours || 0}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.practiceHours || 0}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.labHours || 0}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.seminarHours || 0}</td>
-                                <td className="p-1 border dark:border-gray-600">{subGroupAssignment?.teachingMode ?? 'Presencial'}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{room?.capacity || '-'}</td>
-                                <td className="p-1 border dark:border-gray-600">{room?.suneduCode || '-'}</td>
-                                <td className="p-1 border dark:border-gray-600">{room?.inventoryCode || '-'}</td>
-                                <td onDoubleClick={() => !isDummy && setEditingCell(`${entry.id}-roomId`)} className={`p-1 border dark:border-gray-600 ${!isDummy ? 'cursor-pointer' : ''}`}>
-                                    {editingCell === `${entry.id}-roomId` && !isDummy ? (
-                                        <select
-                                            value={entry.roomId || ''}
-                                            onChange={(e) => handleCellUpdate(entry.id, 'roomId', e.target.value)}
-                                            onBlur={() => setEditingCell(null)}
-                                            autoFocus
-                                            className="w-full bg-transparent border-0 focus:ring-0 p-0 dark:bg-gray-700"
-                                        >
-                                             {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                                        </select>
-                                    ) : (room?.name || 'Por asignar')}
-                                </td>
-                                <td className="p-1 border dark:border-gray-600 whitespace-nowrap">
+                                
+                                {renderMergedCell(index, row, 'course', course?.competencia || '-', { compareFn: compareById })}
+                                {renderMergedCell(index, row, 'course', course?.id, { compareFn: compareById })}
+                                {renderMergedCell(index, row, 'course', course?.name, { compareFn: compareById })}
+                                {renderMergedCell(index, row, 'course.academicDepartments', course?.academicDepartments?.join(', ') || '-', { compareFn: compareByArray })}
+                                {renderMergedCell(index, row, 'course', course?.credits, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'entry.studentGroupId', entry.studentGroupId.split('-')[1], { compareFn: compareByGroup, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                
+                                {renderMergedCell(index, row, 'teacher', teacherDisplay, {
+                                    compareFn: compareById,
+                                    className: `p-1 border dark:border-gray-600 align-top ${!isDummy ? 'cursor-pointer' : ''}`,
+                                    extraProps: !isDummy ? { onDoubleClick: () => setEditingCell(`${id}-teacherId`) } : {}
+                                })}
+                                
+                                {renderMergedCell(index, row, 'teacher', workload?.total || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'course', course?.theoryHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'course', course?.practiceHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'course', course?.labHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'course', course?.seminarHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+
+                                {renderMergedCell(index, row, 'subGroupAssignment.teachingMode', subGroupAssignment?.teachingMode ?? 'Presencial', { compareFn: compareByValue, className: "p-1 border dark:border-gray-600 align-top" })}
+                                
+                                {renderMergedCell(index, row, 'room', room?.capacity || '-', { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'room', room?.suneduCode || '-', { compareFn: compareById })}
+                                {renderMergedCell(index, row, 'room', room?.inventoryCode || '-', { compareFn: compareById })}
+                                
+                                {renderMergedCell(index, row, 'room', roomDisplay, {
+                                    compareFn: compareById,
+                                    className: `p-1 border dark:border-gray-600 align-top ${!isDummy ? 'cursor-pointer' : ''}`,
+                                    extraProps: !isDummy ? { onDoubleClick: () => setEditingCell(`${id}-roomId`) } : {}
+                                })}
+
+                                <td className="p-1 border dark:border-gray-600 whitespace-nowrap align-top">
                                     {isDummy ? 'Por asignar' : `${entry.day.substring(0,3)} ${TIME_SLOTS[entry.timeSlot]}`}
                                     {!isDummy && <button onClick={() => openEntryEditor(entry)} className="ml-2 text-blue-500 hover:text-blue-700"><Icon name="pencil" className="w-3 h-3"/></button>}
                                 </td>
                                 {DAYS_OF_WEEK.map(day => (
-                                    <td key={day} className={`p-1 border dark:border-gray-600 text-center ${!isDummy && entry.day === day ? 'bg-teal-200 dark:bg-teal-800/70' : ''}`}>
+                                    <td key={day} className={`p-1 border dark:border-gray-600 text-center align-top ${!isDummy && entry.day === day ? 'bg-teal-200 dark:bg-teal-800/70' : ''}`}>
                                         {!isDummy && entry.day === day ? 'X' : ''}
                                     </td>
                                 ))}

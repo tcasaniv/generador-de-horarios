@@ -1715,7 +1715,11 @@ const EscuelaView: React.FC<{
     };
 
     const scheduleData = useMemo(() => {
-        return schedule.map(entry => {
+        const rows: any[] = [];
+        const processedAssignments = new Set<string>(); // Key: studentGroupId-sessionType
+
+        // 1. Process all scheduled entries first
+        schedule.forEach(entry => {
             const course = courses.find(c => c.id === entry.courseId);
             const teacher = teachers.find(t => t.id === entry.teacherId);
             const room = rooms.find(r => r.id === entry.roomId);
@@ -1723,18 +1727,89 @@ const EscuelaView: React.FC<{
             const plan = semesterPlan.find(p => p.courseId === courseId);
             const group = plan?.groups.find(g => g.group === groupLetter);
             const studentGroup = studentGroups.find(sg => sg.year === getCourseYear(courseId) && sg.group === groupLetter);
+            
+            const subGroupAssignment = group?.[entry.sessionType]?.[parseInt(subGroupNumStr, 10) - 1];
 
-            const subGroupAssignment = group?.[entry.sessionType]?.[parseInt(subGroupNumStr) - 1];
-
-            return {
+            rows.push({
+                id: entry.id,
                 entry,
                 course,
                 teacher,
                 room,
                 studentGroup,
                 subGroupAssignment
-            };
+            });
+
+            const assignmentKey = `${entry.studentGroupId}-${entry.sessionType}`;
+            processedAssignments.add(assignmentKey);
         });
+        
+        // 2. Process unscheduled-but-assigned entries from the plan
+        semesterPlan.forEach(plan => {
+            if (!plan.isActive) return;
+
+            const course = courses.find(c => c.id === plan.courseId);
+            if (!course) return;
+
+            plan.groups.forEach(group => {
+                (['theory', 'practice', 'lab', 'seminar'] as SessionType[]).forEach(sessionType => {
+                    const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
+                    if (requiredHours === 0) return;
+
+                    group[sessionType].forEach((subGroupAssignment, subGroupIndex) => {
+                        const studentGroupId = `${course.id}-${group.group}-${subGroupIndex + 1}`;
+                        const assignmentKey = `${studentGroupId}-${sessionType}`;
+                        
+                        if (processedAssignments.has(assignmentKey)) return;
+
+                        // Add to view if it has a room assigned, even if not scheduled.
+                        if (subGroupAssignment.roomId) {
+                             const teacher = teachers.find(t => t.id === subGroupAssignment.teacherId);
+                             const room = rooms.find(r => r.id === subGroupAssignment.roomId);
+                             const studentGroup = studentGroups.find(sg => sg.year === getCourseYear(course.id) && sg.group === group.group);
+                            
+                             const dummyEntry: ScheduleEntry = {
+                                id: `dummy_${assignmentKey}`,
+                                courseId: course.id,
+                                teacherId: subGroupAssignment.teacherId,
+                                roomId: subGroupAssignment.roomId,
+                                studentGroupId: studentGroupId,
+                                day: '' as any,
+                                timeSlot: -1,
+                                sessionType: sessionType,
+                                isPinned: false,
+                             };
+                             
+                             rows.push({
+                                 id: dummyEntry.id,
+                                 entry: dummyEntry,
+                                 course,
+                                 teacher,
+                                 room,
+                                 studentGroup,
+                                 subGroupAssignment,
+                             });
+                             // Mark as processed so we don't add it multiple times
+                             processedAssignments.add(assignmentKey);
+                        }
+                    });
+                });
+            });
+        });
+        
+        rows.sort((a, b) => {
+            const courseNameA = a.course?.name || '';
+            const courseNameB = b.course?.name || '';
+            if (courseNameA < courseNameB) return -1;
+            if (courseNameA > courseNameB) return 1;
+            if (a.entry.studentGroupId < b.entry.studentGroupId) return -1;
+            if (a.entry.studentGroupId > b.entry.studentGroupId) return 1;
+            if (a.entry.timeSlot < b.entry.timeSlot) return -1;
+            if (a.entry.timeSlot > b.entry.timeSlot) return 1;
+            return 0;
+        });
+
+        return rows;
     }, [schedule, courses, teachers, rooms, studentGroups, semesterPlan]);
 
     return (
@@ -1748,20 +1823,23 @@ const EscuelaView: React.FC<{
                     </tr>
                 </thead>
                 <tbody>
-                    {scheduleData.map(({entry, course, teacher, room, studentGroup, subGroupAssignment}) => {
+                    {scheduleData.map(({id, entry, course, teacher, room, studentGroup, subGroupAssignment}) => {
                         const workload = teacher ? teacherWorkload[teacher.id] : null;
+                        const isDummy = id.startsWith('dummy_');
                         
                         return (
-                            <tr key={entry.id} className="dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td className="p-1 border dark:border-gray-600 text-center"><button onClick={() => onTogglePin(entry.id)}><Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-4 h-4 ${entry.isPinned ? 'text-rose-500' : 'text-gray-400'}`} /></button></td>
-                                <td className="p-1 border dark:border-gray-600">{course?.competencia}</td>
+                            <tr key={id} className="dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="p-1 border dark:border-gray-600 text-center">
+                                    {!isDummy && <button onClick={() => onTogglePin(entry.id)}><Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-4 h-4 ${entry.isPinned ? 'text-rose-500' : 'text-gray-400'}`} /></button>}
+                                </td>
+                                <td className="p-1 border dark:border-gray-600">{course?.competencia || '-'}</td>
                                 <td className="p-1 border dark:border-gray-600">{course?.id}</td>
                                 <td className="p-1 border dark:border-gray-600">{course?.name}</td>
-                                <td className="p-1 border dark:border-gray-600">{course?.academicDepartments.join(', ')}</td>
+                                <td className="p-1 border dark:border-gray-600">{course?.academicDepartments?.join(', ') || '-'}</td>
                                 <td className="p-1 border dark:border-gray-600 text-center">{course?.credits}</td>
                                 <td className="p-1 border dark:border-gray-600 text-center">{entry.studentGroupId.split('-')[1]}</td>
-                                <td onDoubleClick={() => setEditingCell(`${entry.id}-teacherId`)} className="p-1 border dark:border-gray-600 cursor-pointer">
-                                    {editingCell === `${entry.id}-teacherId` ? (
+                                <td onDoubleClick={() => !isDummy && setEditingCell(`${entry.id}-teacherId`)} className={`p-1 border dark:border-gray-600 ${!isDummy ? 'cursor-pointer' : ''}`}>
+                                    {editingCell === `${entry.id}-teacherId` && !isDummy ? (
                                         <select
                                             value={entry.teacherId || ''}
                                             onChange={(e) => handleCellUpdate(entry.id, 'teacherId', e.target.value)}
@@ -1772,19 +1850,19 @@ const EscuelaView: React.FC<{
                                             <option value="">Sin Asignar</option>
                                             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                         </select>
-                                    ) : teacher?.name}
+                                    ) : (teacher?.name || 'Sin Asignar')}
                                 </td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{workload?.total}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.theoryHours}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.practiceHours}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.labHours}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{course?.seminarHours}</td>
+                                <td className="p-1 border dark:border-gray-600 text-center">{workload?.total || 0}</td>
+                                <td className="p-1 border dark:border-gray-600 text-center">{course?.theoryHours || 0}</td>
+                                <td className="p-1 border dark:border-gray-600 text-center">{course?.practiceHours || 0}</td>
+                                <td className="p-1 border dark:border-gray-600 text-center">{course?.labHours || 0}</td>
+                                <td className="p-1 border dark:border-gray-600 text-center">{course?.seminarHours || 0}</td>
                                 <td className="p-1 border dark:border-gray-600">{subGroupAssignment?.teachingMode ?? 'Presencial'}</td>
-                                <td className="p-1 border dark:border-gray-600 text-center">{room?.capacity}</td>
-                                <td className="p-1 border dark:border-gray-600">{room?.suneduCode}</td>
-                                <td className="p-1 border dark:border-gray-600">{room?.inventoryCode}</td>
-                                <td onDoubleClick={() => setEditingCell(`${entry.id}-roomId`)} className="p-1 border dark:border-gray-600 cursor-pointer">
-                                    {editingCell === `${entry.id}-roomId` ? (
+                                <td className="p-1 border dark:border-gray-600 text-center">{room?.capacity || '-'}</td>
+                                <td className="p-1 border dark:border-gray-600">{room?.suneduCode || '-'}</td>
+                                <td className="p-1 border dark:border-gray-600">{room?.inventoryCode || '-'}</td>
+                                <td onDoubleClick={() => !isDummy && setEditingCell(`${entry.id}-roomId`)} className={`p-1 border dark:border-gray-600 ${!isDummy ? 'cursor-pointer' : ''}`}>
+                                    {editingCell === `${entry.id}-roomId` && !isDummy ? (
                                         <select
                                             value={entry.roomId || ''}
                                             onChange={(e) => handleCellUpdate(entry.id, 'roomId', e.target.value)}
@@ -1794,15 +1872,15 @@ const EscuelaView: React.FC<{
                                         >
                                              {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                         </select>
-                                    ) : room?.name}
+                                    ) : (room?.name || 'Por asignar')}
                                 </td>
                                 <td className="p-1 border dark:border-gray-600 whitespace-nowrap">
-                                    {`${entry.day.substring(0,3)} ${TIME_SLOTS[entry.timeSlot]}`}
-                                    <button onClick={() => openEntryEditor(entry)} className="ml-2 text-blue-500 hover:text-blue-700"><Icon name="pencil" className="w-3 h-3"/></button>
+                                    {isDummy ? 'Por asignar' : `${entry.day.substring(0,3)} ${TIME_SLOTS[entry.timeSlot]}`}
+                                    {!isDummy && <button onClick={() => openEntryEditor(entry)} className="ml-2 text-blue-500 hover:text-blue-700"><Icon name="pencil" className="w-3 h-3"/></button>}
                                 </td>
                                 {DAYS_OF_WEEK.map(day => (
-                                    <td key={day} className={`p-1 border dark:border-gray-600 ${entry.day === day ? `bg-teal-200 dark:bg-teal-800/70` : ''}`}>
-                                        {entry.day === day ? 'X' : ''}
+                                    <td key={day} className={`p-1 border dark:border-gray-600 text-center ${!isDummy && entry.day === day ? 'bg-teal-200 dark:bg-teal-800/70' : ''}`}>
+                                        {!isDummy && entry.day === day ? 'X' : ''}
                                     </td>
                                 ))}
                             </tr>

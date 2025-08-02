@@ -1,14 +1,30 @@
-# Run and deploy your AI Studio app
+# Generador de horarios
 
-This contains everything you need to run your app locally.
+Generador horarios para escuelas.
 
-## Run Locally
+## Características
 
-**Prerequisites:**  Node.js
+Planifica horarios para la escuela profesional en base a:
 
+- Asignaturas de Plan de Estudios
+- Ambientes: Aulas, Laboratorios, Talleres
+- Docentes
+- Grupos de alumnos
+- Plan de Funcionamiento
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+Genera automáticamente:
+
+- Horarios por ambiente
+- Horarios por docente
+- Horarios por grupos de alumnos (año, grupo y subgrupo)
+- Tabla Plan de Funcionamiento (Vista por Escuela)
+- Parte de asistencia y avance lectivo por día
+
+## Correr Localmente
+
+**Prerequisitos:** Node.js
+
+1. Instala dependencias:
+   `npm install` or `npm i`
+2. Corre la app:
    `npm run dev`

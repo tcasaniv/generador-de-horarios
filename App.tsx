@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, ChangeEvent, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Course, Teacher, Room, ScheduleEntry, SemesterCourse, Tab, Availability, SessionType, Day, StudentGroup, SortConfig, SemesterCourseGroup, AppState, UnscheduledUnit, ClassUnit, Conflict, SubgroupAssignment } from './types';
+import { Course, Teacher, Room, ScheduleEntry, SemesterCourse, Tab, Availability, SessionType, Day, StudentGroup, SortConfig, SemesterCourseGroup, AppState, UnscheduledUnit, ClassUnit, Conflict, SubgroupAssignment, UnassignedAssignment } from './types';
 import { DAYS_OF_WEEK, TIME_SLOTS, FULL_AVAILABILITY } from './constants';
 import { generateSchedule, fixSchedule, validateMove, getCourseYear } from './services/scheduler';
 import { Icon } from './components/icons';
@@ -1311,6 +1311,45 @@ const SubgroupEditor: React.FC<{
 
 // --- TIMETABLE VIEW ---
 
+const UnassignedAssignmentsView: React.FC<{
+    assignments: UnassignedAssignment[];
+    viewType: 'teacher' | 'room' | 'studentGroup';
+}> = ({ assignments, viewType }) => {
+    if (assignments.length === 0) return null;
+
+    const titleMap = {
+        teacher: "Cursos Asignados al Docente sin Horario Fijo",
+        room: "Cursos Asignados al Ambiente sin Horario Fijo",
+        studentGroup: "Cursos del Grupo sin Horario Fijo",
+    };
+
+    return (
+        <div className="mt-6 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 p-4 rounded-lg noprint">
+            <h3 className="font-semibold text-lg text-yellow-800 dark:text-yellow-200 mb-2">{titleMap[viewType]}</h3>
+            <div className="max-h-60 overflow-y-auto">
+                <ul className="divide-y divide-yellow-200 dark:divide-yellow-800">
+                    {assignments.map((a, i) => (
+                        <li key={i} className="py-2 px-1 text-sm text-gray-700 dark:text-gray-300">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <span className="font-bold">{a.courseName}</span>
+                                    <span className="ml-2 capitalize text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700">{a.sessionType}</span>
+                                </div>
+                                <span className="font-mono text-base">{a.hours}h</span>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-x-4">
+                                <span>Grupo: {a.studentGroupId.split('-').slice(1).join('-')}</span>
+                                {viewType !== 'teacher' && a.teacherName && <span>Docente: {a.teacherName}</span>}
+                                {viewType !== 'room' && a.roomName && <span>Ambiente Defecto: {a.roomName}</span>}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
 const TimetableView: React.FC<{
     state: AppState;
     onMoveEntry: (entryId: string, newDay: Day, newTimeSlot: number) => void;
@@ -1329,11 +1368,91 @@ const TimetableView: React.FC<{
     const { teachers, rooms, studentGroups } = state;
 
     useEffect(() => {
-        if(viewType === 'teacher' && teachers.length > 0) setSelectedId(teachers[0].id);
-        if(viewType === 'room' && rooms.length > 0) setSelectedId(rooms[0].id);
-        if(viewType === 'studentGroup' && studentGroups.length > 0) setSelectedId(studentGroups[0].id);
+        if(viewType === 'teacher' && teachers.length > 0 && !selectedId) setSelectedId(teachers[0].id);
+        if(viewType === 'room' && rooms.length > 0 && !selectedId) setSelectedId(rooms[0].id);
+        if(viewType === 'studentGroup' && studentGroups.length > 0 && !selectedId) setSelectedId(studentGroups[0].id);
         if(viewType === 'escuela') setSelectedId(null);
-    }, [viewType, teachers, rooms, studentGroups]);
+    }, [viewType, teachers, rooms, studentGroups, selectedId]);
+
+    const unassignedAssignments = useMemo((): UnassignedAssignment[] => {
+        if (!selectedId || viewType === 'escuela') {
+            return [];
+        }
+    
+        const unassigned: UnassignedAssignment[] = [];
+        const scheduledCounts: { [key: string]: number } = {}; // key: studentGroupId-sessionType
+    
+        state.schedule.forEach(entry => {
+            const key = `${entry.studentGroupId}-${entry.sessionType}`;
+            scheduledCounts[key] = (scheduledCounts[key] || 0) + 1;
+        });
+    
+        state.semesterPlan.forEach(planItem => {
+            if (!planItem.isActive) return;
+    
+            const course = state.courses.find(c => c.id === planItem.courseId);
+            if (!course) return;
+            
+            const courseYear = getCourseYear(course.id);
+    
+            planItem.groups.forEach(group => {
+                const studentGroupInfo = state.studentGroups.find(sg => sg.year === courseYear && sg.group === group.group);
+    
+                (['theory', 'practice', 'lab', 'seminar'] as const).forEach(sessionType => {
+                    const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
+                    if (requiredHours === 0) return;
+    
+                    group[sessionType].forEach((assignment, subIndex) => {
+                        const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
+                        const key = `${studentGroupId}-${sessionType}`;
+                        const scheduledHours = scheduledCounts[key] || 0;
+                        const unassignedHours = requiredHours - scheduledHours;
+    
+                        if (unassignedHours <= 0) return;
+    
+                        let isRelevant = false;
+                        switch (viewType) {
+                            case 'teacher':
+                                if (assignment.teacherId === selectedId) isRelevant = true;
+                                break;
+                            case 'room':
+                                if (assignment.roomId === selectedId) isRelevant = true;
+                                break;
+                            case 'studentGroup':
+                                if (studentGroupInfo?.id === selectedId) isRelevant = true;
+                                break;
+                        }
+    
+                        if (isRelevant) {
+                            const teacher = state.teachers.find(t => t.id === assignment.teacherId);
+                            const room = state.rooms.find(r => r.id === assignment.roomId);
+                            
+                            const alreadyExists = unassigned.some(a => 
+                                a.studentGroupId === studentGroupId &&
+                                a.sessionType === sessionType
+                            );
+    
+                            if (!alreadyExists) {
+                                unassigned.push({
+                                    courseId: course.id,
+                                    courseName: course.name,
+                                    sessionType: sessionType,
+                                    studentGroupId: studentGroupId,
+                                    teacherId: assignment.teacherId,
+                                    teacherName: teacher?.name,
+                                    roomId: assignment.roomId,
+                                    roomName: room?.name,
+                                    hours: unassignedHours,
+                                });
+                            }
+                        }
+                    });
+                });
+            });
+        });
+    
+        return unassigned;
+    }, [selectedId, viewType, state]);
 
     const handlePrint = () => window.print();
 
@@ -1365,27 +1484,30 @@ const TimetableView: React.FC<{
                 {viewType === 'escuela' ? (
                      <EscuelaView {...props} />
                 ) : (
-                    <ScheduleGrid
-                       key={selectedId}
-                       entries={state.schedule.filter(e => {
-                           if (!selectedId) return false;
-                           if (viewType === 'teacher') return e.teacherId === selectedId;
-                           if (viewType === 'room') return e.roomId === selectedId;
-                           if (viewType === 'studentGroup') {
-                               const courseYear = getCourseYear(e.courseId);
-                               const studentGroup = studentGroups.find(sg => sg.id === selectedId);
-                               return courseYear === studentGroup?.year && e.studentGroupId.split('-')[1] === studentGroup.group;
-                           }
-                           return false;
-                       })}
-                       allCourses={state.courses}
-                       allTeachers={state.teachers}
-                       allRooms={state.rooms}
-                       onMoveEntry={props.onMoveEntry}
-                       onTogglePin={props.onTogglePin}
-                       onOpenCreator={props.openEntryCreator}
-                       onOpenEditor={props.openEntryEditor}
-                    />
+                    <>
+                        <ScheduleGrid
+                           key={selectedId}
+                           entries={state.schedule.filter(e => {
+                               if (!selectedId) return false;
+                               if (viewType === 'teacher') return e.teacherId === selectedId;
+                               if (viewType === 'room') return e.roomId === selectedId;
+                               if (viewType === 'studentGroup') {
+                                   const courseYear = getCourseYear(e.courseId);
+                                   const studentGroup = studentGroups.find(sg => sg.id === selectedId);
+                                   return courseYear === studentGroup?.year && e.studentGroupId.split('-')[1] === studentGroup.group;
+                               }
+                               return false;
+                           })}
+                           allCourses={state.courses}
+                           allTeachers={state.teachers}
+                           allRooms={state.rooms}
+                           onMoveEntry={props.onMoveEntry}
+                           onTogglePin={props.onTogglePin}
+                           onOpenCreator={props.openEntryCreator}
+                           onOpenEditor={props.openEntryEditor}
+                        />
+                        <UnassignedAssignmentsView assignments={unassignedAssignments} viewType={viewType} />
+                    </>
                 )}
             </div>
         </div>

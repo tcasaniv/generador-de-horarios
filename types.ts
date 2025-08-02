@@ -136,3 +136,15 @@ export interface Conflict {
     type: 'teacher' | 'room' | 'studentGroup' | 'teacherAvailability' | 'roomAvailability' | 'studentGroupAvailability';
     message: string;
 }
+
+export interface UnassignedAssignment {
+    courseId: string;
+    courseName: string;
+    sessionType: SessionType;
+    studentGroupId: string;
+    teacherId: string | null;
+    teacherName?: string;
+    roomId: string | null;
+    roomName?: string;
+    hours: number;
+}

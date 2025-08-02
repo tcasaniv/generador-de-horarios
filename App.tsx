@@ -422,11 +422,85 @@ function App() {
         event.target.value = ''; // Reset input
     };
 
-    const handleSemesterPlanUpdate = (newPlan: SemesterCourse[] | ((prevPlan: SemesterCourse[]) => SemesterCourse[])) => {
+    const handleSemesterPlanUpdate = useCallback((newPlan: SemesterCourse[] | ((prevPlan: SemesterCourse[]) => SemesterCourse[])) => {
         setState(prevState => ({
             ...prevState,
             semesterPlan: typeof newPlan === 'function' ? newPlan(prevState.semesterPlan) : newPlan
         }));
+    }, []);
+
+    const handleManualAssignmentSave = (
+        courseId: string, 
+        groupIndex: number, 
+        session: SessionType, 
+        subGroupIndex: number, 
+        newSlots: {day: Day, timeSlot: number, roomId?: string | null}[]
+    ) => {
+        setState(prev => {
+            const plan = prev.semesterPlan.find(p => p.courseId === courseId);
+            if (!plan) return prev;
+            const group = plan.groups[groupIndex];
+            if (!group) return prev;
+            const assignment = group[session][subGroupIndex];
+            if (!assignment) return prev;
+            
+            const oldSlots = assignment.manualSlots || [];
+
+            // Update plan (purely)
+            const updatedPlan = prev.semesterPlan.map(p => {
+                if (p.courseId !== courseId) return p;
+                const newGroups = p.groups.map((g, i) => {
+                    if (i !== groupIndex) return g;
+                    const newSessionAssignments = g[session].map((sa, j) => {
+                        if (j !== subGroupIndex) return sa;
+                        return { ...sa, manualSlots: newSlots };
+                    });
+                    return { ...g, [session]: newSessionAssignments };
+                });
+                return { ...p, groups: newGroups };
+            });
+
+            // Sync schedule
+            const getSlotKey = (s: {day: Day, timeSlot: number}) => `${s.day}-${s.timeSlot}`;
+            const oldSlotKeys = new Set(oldSlots.map(getSlotKey));
+            
+            const studentGroupId = `${courseId}-${group.group}-${subGroupIndex + 1}`;
+            
+            // Filter out entries that correspond to old manual slots that are now removed
+            const scheduleWithoutOldEntries = prev.schedule.filter(entry => {
+                if (entry.studentGroupId === studentGroupId && entry.sessionType === session) {
+                    const entrySlotKey = `${entry.day}-${entry.timeSlot}`;
+                    if (oldSlotKeys.has(entrySlotKey)) {
+                        return false; // Remove, it will be re-added if it's in newSlots
+                    }
+                }
+                return true;
+            });
+            
+            const newEntries = newSlots.map(slot => {
+                const roomId = slot.roomId || assignment.roomId;
+                if (!roomId) return null;
+                return {
+                    id: generateId(),
+                    courseId,
+                    teacherId: assignment.teacherId,
+                    roomId,
+                    studentGroupId,
+                    day: slot.day,
+                    timeSlot: slot.timeSlot,
+                    sessionType: session,
+                    isPinned: true,
+                };
+            }).filter(Boolean) as ScheduleEntry[];
+
+            return {
+                ...prev,
+                semesterPlan: updatedPlan,
+                schedule: [...scheduleWithoutOldEntries, ...newEntries],
+            };
+        });
+        
+        setModalState({ type: null, data: null });
     };
 
     const handleOpenEntryEditor = (entry: ScheduleEntry) => {
@@ -477,18 +551,6 @@ function App() {
             const subGroup = plan.groups[groupIndex][session][subGroupIndex];
             const requiredHours = course[`${session}Hours` as keyof Course] as number || 0;
 
-            const handleUpdate = (courseId: string, groupIndex: number, session: SessionType, subGroupIndex: number, field: keyof SubgroupAssignment, value: any) => {
-                handleSemesterPlanUpdate(prev => prev.map(p => {
-                    if (p.courseId === courseId) {
-                        const newGroups = [...p.groups];
-                        // @ts-ignore
-                        newGroups[groupIndex][session][subGroupIndex][field] = value;
-                        return { ...p, groups: newGroups };
-                    }
-                    return p;
-                }));
-            };
-
             return (
                 <ManualAssignmentModal
                     isOpen={true}
@@ -496,8 +558,7 @@ function App() {
                     requiredHours={requiredHours}
                     initialSlots={subGroup.manualSlots || []}
                     onSave={(newSlots) => {
-                        handleUpdate(courseId, groupIndex, session, subGroupIndex, 'manualSlots', newSlots);
-                        setModalState({ type: null, data: null });
+                        handleManualAssignmentSave(courseId, groupIndex, session, subGroupIndex, newSlots);
                     }}
                     title={`Asignar Horas: ${course.name} (${session})`}
                 />
@@ -1080,9 +1141,18 @@ const SemesterPlanView: React.FC<{
     const handleUpdate = (courseId: string, groupIndex: number, session: SessionType, subGroupIndex: number, field: keyof SubgroupAssignment, value: any) => {
         setSemesterPlan(prev => prev.map(p => {
             if (p.courseId === courseId) {
-                const newGroups = [...p.groups];
-                // @ts-ignore
-                newGroups[groupIndex][session][subGroupIndex][field] = value;
+                const newGroups = p.groups.map((g, i) => {
+                    if (i === groupIndex) {
+                        const newSessionAssignments = g[session].map((sa, j) => {
+                            if (j === subGroupIndex) {
+                                return { ...sa, [field]: value };
+                            }
+                            return sa;
+                        });
+                        return { ...g, [session]: newSessionAssignments };
+                    }
+                    return g;
+                });
                 return { ...p, groups: newGroups };
             }
             return p;
@@ -1092,13 +1162,19 @@ const SemesterPlanView: React.FC<{
     const addOrRemoveSubgroup = (courseId: string, groupIndex: number, session: SessionType, action: 'add' | 'remove') => {
         setSemesterPlan(prev => prev.map(p => {
             if (p.courseId === courseId) {
-                const newGroups = [...p.groups];
-                const currentSession = newGroups[groupIndex][session];
-                if (action === 'add') {
-                    currentSession.push({ teacherId: null, teachingMode: 'Presencial', manualSlots: [], roomId: null });
-                } else {
-                    currentSession.pop();
-                }
+                const newGroups = p.groups.map((g, i) => {
+                    if (i === groupIndex) {
+                        const newGroup = { ...g };
+                        const sessionArray = newGroup[session];
+                        if (action === 'add') {
+                            newGroup[session] = [...sessionArray, { teacherId: null, teachingMode: 'Presencial', manualSlots: [], roomId: null }];
+                        } else {
+                            newGroup[session] = sessionArray.slice(0, -1);
+                        }
+                        return newGroup;
+                    }
+                    return g;
+                });
                 return { ...p, groups: newGroups };
             }
             return p;

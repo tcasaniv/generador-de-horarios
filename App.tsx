@@ -1827,11 +1827,13 @@ const EscuelaView: React.FC<{
         const get = (obj: any, path: string): any => path.split('.').reduce((p, c) => (p && typeof p === 'object' && c in p) ? p[c] : undefined, obj);
     
         const currentValue = compareFn(get(row, dataPath));
+        const currentCourseId = get(row, 'course.id');
     
         const prevRow = index > 0 ? scheduleData[index - 1] : null;
         if (prevRow) {
             const prevValue = compareFn(get(prevRow, dataPath));
-            if (prevValue === currentValue) {
+            const prevCourseId = get(prevRow, 'course.id');
+            if (prevCourseId === currentCourseId && prevValue === currentValue) {
                 return null; // This cell is merged with the one above
             }
         }
@@ -1840,7 +1842,8 @@ const EscuelaView: React.FC<{
         for (let i = index + 1; i < scheduleData.length; i++) {
             const nextRow = scheduleData[i];
             const nextValue = compareFn(get(nextRow, dataPath));
-            if (nextValue === currentValue) {
+            const nextCourseId = get(nextRow, 'course.id');
+            if (nextCourseId === currentCourseId && nextValue === currentValue) {
                 rowSpan++;
             } else {
                 break;

@@ -1,0 +1,6 @@
+{
+  "name": "Generador de Horarios",
+  "description": "Una aplicación web intuitiva para generar y gestionar horarios académicos complejos. Utiliza un algoritmo local para optimizar la asignación de recursos, resolver conflictos y adaptarse a múltiples restricciones como la disponibilidad de docentes, aulas y laboratorios.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

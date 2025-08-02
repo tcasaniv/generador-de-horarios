@@ -1649,7 +1649,7 @@ const TimeSlotCell: React.FC<{
     };
 
     return (
-        <td ref={drop as any} onDoubleClick={handleDoubleClick} className="p-0.5 border dark:border-gray-600 h-20 w-40 align-top relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
+        <td ref={drop as any} onDoubleClick={handleDoubleClick} className="p-0.5 border dark:border-gray-600 h-20 w-40 align-middle relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
             {entry && <ScheduleCard entry={entry} allCourses={allCourses} allTeachers={allTeachers} allRooms={allRooms} onTogglePin={onTogglePin} onDoubleClick={() => onOpenEditor(entry)} />}
         </td>
     );
@@ -1823,7 +1823,7 @@ const EscuelaView: React.FC<{
             extraProps?: object;
         } = {}
     ) => {
-        const { compareFn = (v: any) => v, className = "p-1 border dark:border-gray-600 align-top", extraProps = {} } = options;
+        const { compareFn = (v: any) => v, className = "p-1 border dark:border-gray-600 align-middle", extraProps = {} } = options;
         const get = (obj: any, path: string): any => path.split('.').reduce((p, c) => (p && typeof p === 'object' && c in p) ? p[c] : undefined, obj);
     
         const currentValue = compareFn(get(row, dataPath));
@@ -1909,7 +1909,7 @@ const EscuelaView: React.FC<{
 
                         return (
                              <tr key={id} className="dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td className="p-1 border dark:border-gray-600 text-center align-top">
+                                <td className="p-1 border dark:border-gray-600 text-center align-middle">
                                     {!isDummy && <button onClick={() => onTogglePin(entry.id)}><Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-4 h-4 ${entry.isPinned ? 'text-rose-500' : 'text-gray-400'}`} /></button>}
                                 </td>
                                 
@@ -1917,39 +1917,39 @@ const EscuelaView: React.FC<{
                                 {renderMergedCell(index, row, 'course', course?.id, { compareFn: compareById })}
                                 {renderMergedCell(index, row, 'course', course?.name, { compareFn: compareById })}
                                 {renderMergedCell(index, row, 'course.academicDepartments', course?.academicDepartments?.join(', ') || '-', { compareFn: compareByArray })}
-                                {renderMergedCell(index, row, 'course', course?.credits, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
-                                {renderMergedCell(index, row, 'entry.studentGroupId', entry.studentGroupId.split('-')[1], { compareFn: compareByGroup, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'course', course?.credits, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
+                                {renderMergedCell(index, row, 'entry.studentGroupId', entry.studentGroupId.split('-')[1], { compareFn: compareByGroup, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
                                 
                                 {renderMergedCell(index, row, 'teacher', teacherDisplay, {
                                     compareFn: compareById,
-                                    className: `p-1 border dark:border-gray-600 align-top ${!isDummy ? 'cursor-pointer' : ''}`,
+                                    className: `p-1 border dark:border-gray-600 align-middle ${!isDummy ? 'cursor-pointer' : ''}`,
                                     extraProps: !isDummy ? { onDoubleClick: () => setEditingCell(`${id}-teacherId`) } : {}
                                 })}
                                 
-                                {renderMergedCell(index, row, 'teacher', workload?.total || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
-                                {renderMergedCell(index, row, 'course', course?.theoryHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
-                                {renderMergedCell(index, row, 'course', course?.practiceHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
-                                {renderMergedCell(index, row, 'course', course?.labHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
-                                {renderMergedCell(index, row, 'course', course?.seminarHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'teacher', workload?.total || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
+                                {renderMergedCell(index, row, 'course', course?.theoryHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
+                                {renderMergedCell(index, row, 'course', course?.practiceHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
+                                {renderMergedCell(index, row, 'course', course?.labHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
+                                {renderMergedCell(index, row, 'course', course?.seminarHours || 0, { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
 
-                                {renderMergedCell(index, row, 'subGroupAssignment.teachingMode', subGroupAssignment?.teachingMode ?? 'Presencial', { compareFn: compareByValue, className: "p-1 border dark:border-gray-600 align-top" })}
+                                {renderMergedCell(index, row, 'subGroupAssignment.teachingMode', subGroupAssignment?.teachingMode ?? 'Presencial', { compareFn: compareByValue, className: "p-1 border dark:border-gray-600 align-middle" })}
                                 
-                                {renderMergedCell(index, row, 'room', room?.capacity || '-', { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-top" })}
+                                {renderMergedCell(index, row, 'room', room?.capacity || '-', { compareFn: compareById, className: "p-1 border dark:border-gray-600 text-center align-middle" })}
                                 {renderMergedCell(index, row, 'room', room?.suneduCode || '-', { compareFn: compareById })}
                                 {renderMergedCell(index, row, 'room', room?.inventoryCode || '-', { compareFn: compareById })}
                                 
                                 {renderMergedCell(index, row, 'room', roomDisplay, {
                                     compareFn: compareById,
-                                    className: `p-1 border dark:border-gray-600 align-top ${!isDummy ? 'cursor-pointer' : ''}`,
+                                    className: `p-1 border dark:border-gray-600 align-middle ${!isDummy ? 'cursor-pointer' : ''}`,
                                     extraProps: !isDummy ? { onDoubleClick: () => setEditingCell(`${id}-roomId`) } : {}
                                 })}
 
-                                <td className="p-1 border dark:border-gray-600 whitespace-nowrap align-top">
+                                <td className="p-1 border dark:border-gray-600 whitespace-nowrap align-middle">
                                     {isDummy ? 'Por asignar' : `${entry.day.substring(0,3)} ${TIME_SLOTS[entry.timeSlot]}`}
                                     {!isDummy && <button onClick={() => openEntryEditor(entry)} className="ml-2 text-blue-500 hover:text-blue-700"><Icon name="pencil" className="w-3 h-3"/></button>}
                                 </td>
                                 {DAYS_OF_WEEK.map(day => (
-                                    <td key={day} className={`p-1 border dark:border-gray-600 text-center align-top ${!isDummy && entry.day === day ? 'bg-teal-200 dark:bg-teal-800/70' : ''}`}>
+                                    <td key={day} className={`p-1 border dark:border-gray-600 text-center align-middle ${!isDummy && entry.day === day ? 'bg-teal-200 dark:bg-teal-800/70' : ''}`}>
                                         {!isDummy && entry.day === day ? 'X' : ''}
                                     </td>
                                 ))}

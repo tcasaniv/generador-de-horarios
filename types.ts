@@ -1,150 +1,154 @@
-
-
 export interface Course {
-    id: string; // Course Code
-    name: string;
-    theoryHours: number;
-    practiceHours: number;
-    labHours: number;
-    seminarHours: number;
-    theoryPracticeHours: number;
-    credits: number;
-    academicDepartments: string[];
-    prerequisites: string[];
-    prerequisiteCredits: number;
-    competencia?: string;
-    description?: string;
-    content?: string[];
-    syllabusUrl?: string;
+  id: string; // Course Code
+  name: string;
+  theoryHours: number;
+  practiceHours: number;
+  labHours: number;
+  seminarHours: number;
+  theoryPracticeHours: number;
+  credits: number;
+  academicDepartments: string[];
+  prerequisites: string[];
+  prerequisiteCredits: number;
+  competencia?: string;
+  description?: string;
+  content?: string[];
+  syllabusUrl?: string;
 }
 
 export interface Room {
-    id: string; // Room Code: e.g., '26.5-103'
-    name: string;
-    capacity: number;
-    type: 'aula' | 'laboratorio' | 'taller';
-    availability: Availability;
-    suneduCode?: string;
-    inventoryCode?: string;
+  id: string; // Room Code: e.g., '26.5-103'
+  name: string;
+  capacity: number;
+  type: "aula" | "laboratorio" | "taller";
+  availability: Availability;
+  suneduCode?: string;
+  inventoryCode?: string;
 }
 
 export interface Teacher {
-    id: string; // DNI
-    name: string;
-    phone?: string;
-    email?: string;
-    availability: Availability;
-    academicDepartment?: string;
-    type: 'nombrado' | 'contratado';
-    dedication?: string;
+  id: string; // DNI
+  name: string;
+  phone?: string;
+  email?: string;
+  availability: Availability;
+  academicDepartment?: string;
+  type: "nombrado" | "contratado";
+  dedication?: string;
 }
 
 export interface StudentGroup {
-    id: string; // e.g., '4-A' for 4th year, group A
-    year: number;
-    group: string;
-    studentCount?: number;
-    availability: Availability;
+  id: string; // e.g., '4-A' for 4th year, group A
+  year: number;
+  group: string;
+  studentCount?: number;
+  availability: Availability;
 }
 
 export interface SubgroupAssignment {
-    teacherId: string | null;
-    teachingMode?: 'Presencial' | 'Virtual' | 'Híbrido';
-    roomId?: string | null; // Default room for auto-scheduling or manual slots
-    manualSlots: {
-        day: Day;
-        timeSlot: number;
-        roomId?: string | null; // Optional override for a specific slot
-    }[];
+  teacherId: string | null;
+  teachingMode?: "Presencial" | "Virtual" | "Híbrido";
+  roomId?: string | null; // Default room for auto-scheduling or manual slots
+  manualSlots: {
+    day: Day;
+    timeSlot: number;
+    roomId?: string | null; // Optional override for a specific slot
+  }[];
 }
 
 export interface SemesterCourseGroup {
-    group: string; // e.g., 'A'
-    theory: SubgroupAssignment[];
-    practice: SubgroupAssignment[];
-    lab: SubgroupAssignment[];
-    seminar: SubgroupAssignment[];
+  group: string; // e.g., 'A'
+  theory: SubgroupAssignment[];
+  practice: SubgroupAssignment[];
+  lab: SubgroupAssignment[];
+  seminar: SubgroupAssignment[];
 }
 
 export interface SemesterCourse {
-    courseId: string;
-    isActive: boolean; // if it will be taught this semester
-    isReprogrammed: boolean;
-    groups: SemesterCourseGroup[];
+  courseId: string;
+  isActive: boolean; // if it will be taught this semester
+  isReprogrammed: boolean;
+  groups: SemesterCourseGroup[];
 }
 
-export type SessionType = 'theory' | 'practice' | 'lab' | 'seminar';
+export type SessionType = "theory" | "practice" | "lab" | "seminar";
 
 export interface ScheduleEntry {
-    id: string; // unique id for this entry
-    courseId: string;
-    teacherId: string | null;
-    roomId: string;
-    studentGroupId: string; // e.g., "IS08A01-A-1" -> course IS08A01, group A, subgroup 1
-    day: Day;
-    timeSlot: number;
-    sessionType: SessionType;
-    isPinned: boolean;
+  id: string; // unique id for this entry
+  courseId: string;
+  teacherId: string | null;
+  roomId: string | null;
+  studentGroupId: string; // e.g., "IS08A01-A-1" -> course IS08A01, group A, subgroup 1
+  day: Day;
+  timeSlot: number;
+  sessionType: SessionType;
+  isPinned: boolean;
 }
 
 export interface Availability {
-    [day: string]: boolean[]; // e.g., { 'lunes': [true, true, false, ...], ... }
+  [day: string]: boolean[]; // e.g., { 'lunes': [true, true, false, ...], ... }
 }
 
 export enum Tab {
-    ASIGNATURAS = "Asignaturas",
-    ROOMS = "Ambientes",
-    TEACHERS = "Docentes",
-    STUDENT_GROUPS = "Alumnos",
-    SEMESTER_PLAN = "Plan de Funcionamiento",
-    TIMETABLE = "Horarios",
-    ATTENDANCE_REPORT = "Parte de Asistencia"
+  ASIGNATURAS = "Asignaturas",
+  ROOMS = "Ambientes",
+  TEACHERS = "Docentes",
+  STUDENT_GROUPS = "Alumnos",
+  SEMESTER_PLAN = "Plan de Funcionamiento",
+  TIMETABLE = "Horarios",
+  ATTENDANCE_REPORT = "Parte de Asistencia",
 }
 
-export type Day = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes';
+export type Day = "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes";
 
 export type SortConfig<T> = {
-    key: keyof T;
-    direction: 'ascending' | 'descending';
+  key: keyof T;
+  direction: "ascending" | "descending";
 } | null;
 
 export interface AppState {
-    courses: Course[];
-    teachers: Teacher[];
-    rooms: Room[];
-    studentGroups: StudentGroup[];
-    semesterPlan: SemesterCourse[];
-    schedule: ScheduleEntry[];
+  courses: Course[];
+  teachers: Teacher[];
+  rooms: Room[];
+  studentGroups: StudentGroup[];
+  semesterPlan: SemesterCourse[];
+  schedule: ScheduleEntry[];
 }
 
 // Represents a single, 1-hour class session to be scheduled
 export interface ClassUnit {
-    courseId: string;
-    teacherId: string | null;
-    studentGroupId: string; 
-    sessionType: SessionType;
-    requiredRoomType: 'aula' | 'laboratorio' | 'taller';
-    studentCount: number;
+  courseId: string;
+  teacherId: string | null;
+  studentGroupId: string;
+  sessionType: SessionType;
+  requiredRoomType: "aula" | "laboratorio" | "taller";
+  studentCount: number;
 }
 
 export interface UnscheduledUnit {
-    unit: ClassUnit;
-    reason: string;
+  unit: ClassUnit;
+  reason: string;
 }
 
 export interface Conflict {
-    type: 'teacher' | 'room' | 'studentGroup' | 'teacherAvailability' | 'roomAvailability' | 'studentGroupAvailability';
-    message: string;
+  type:
+    | "teacher"
+    | "room"
+    | "studentGroup"
+    | "teacherAvailability"
+    | "roomAvailability"
+    | "studentGroupAvailability";
+  message: string;
 }
 
 export interface UnassignedAssignment {
-    courseId: string;
-    courseName: string;
-    sessionType: SessionType;
-    studentGroupId: string;
-    teacherId: string | null;
-    teacherName?: string;
-    roomId: string | null;
-    roomName?: string;
-    hours: number;
+  courseId: string;
+  courseName: string;
+  sessionType: SessionType;
+  studentGroupId: string;
+  teacherId: string | null;
+  teacherName?: string;
+  roomId: string | null;
+  roomName?: string;
+  hours: number;
 }

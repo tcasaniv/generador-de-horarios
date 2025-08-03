@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, ChangeEvent, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -403,39 +400,39 @@ function App() {
     
     // --- File Handlers ---
     const getManualEntriesFromPlan = (plan: SemesterCourse[]): ScheduleEntry[] => {
-        const entriesMap = new Map<string, ScheduleEntry>();
+        const entries: ScheduleEntry[] = [];
+        const addedKeys = new Set<string>(); // Key: studentGroupId-day-timeSlot
 
         plan.filter(sc => sc.isActive).forEach(sc => {
             sc.groups.forEach((g) => {
                 (['theory', 'practice', 'lab', 'seminar'] as SessionType[]).forEach(sessionType => {
                     g[sessionType]?.forEach((assignment, subIndex) => {
                         assignment.manualSlots?.forEach(slot => {
-                            const roomId = slot.roomId || assignment.roomId;
-                            if (roomId) {
-                                const studentGroupId = `${sc.courseId}-${g.group}-${subIndex + 1}`;
-                                const entryKey = `${slot.day}-${slot.timeSlot}-${roomId}`;
-                                
-                                if (!entriesMap.has(entryKey)) { // Only add if room is free
-                                    const newEntry = {
-                                        id: generateId(),
-                                        courseId: sc.courseId,
-                                        teacherId: assignment.teacherId,
-                                        roomId: roomId,
-                                        studentGroupId: studentGroupId,
-                                        day: slot.day,
-                                        timeSlot: slot.timeSlot,
-                                        sessionType: sessionType,
-                                        isPinned: true,
-                                    };
-                                    entriesMap.set(entryKey, newEntry);
-                                }
+                            const studentGroupId = `${sc.courseId}-${g.group}-${subIndex + 1}`;
+                            const entryKey = `${studentGroupId}-${slot.day}-${slot.timeSlot}`;
+                            
+                            if (!addedKeys.has(entryKey)) {
+                                const roomId = slot.roomId || assignment.roomId || null;
+                                const newEntry: ScheduleEntry = {
+                                    id: generateId(),
+                                    courseId: sc.courseId,
+                                    teacherId: assignment.teacherId,
+                                    roomId: roomId,
+                                    studentGroupId: studentGroupId,
+                                    day: slot.day,
+                                    timeSlot: slot.timeSlot,
+                                    sessionType: sessionType,
+                                    isPinned: true,
+                                };
+                                entries.push(newEntry);
+                                addedKeys.add(entryKey);
                             }
                         });
                     });
                 });
             });
         });
-        return Array.from(entriesMap.values());
+        return entries;
     };
 
     const handleImport = (event: ChangeEvent<HTMLInputElement>, itemType: keyof AppState) => {
@@ -534,9 +531,8 @@ function App() {
                 return true;
             });
             
-            const newEntries = newSlots.map(slot => {
-                const roomId = slot.roomId || assignment.roomId;
-                if (!roomId) return null;
+            const newEntries: ScheduleEntry[] = newSlots.map(slot => {
+                const roomId = slot.roomId || assignment.roomId || null;
                 return {
                     id: generateId(),
                     courseId,
@@ -548,7 +544,7 @@ function App() {
                     sessionType: session,
                     isPinned: true,
                 };
-            }).filter(Boolean) as ScheduleEntry[];
+            });
 
             return {
                 ...prev,
@@ -1875,7 +1871,7 @@ const ScheduleCard: React.FC<{
     const room = allRooms.find(r => r.id === entry.roomId);
     
     const teacherNameParts = teacher?.name.split(' ') || [];
-    const teacherShortName = teacherNameParts.length > 1 ? `${teacherNameParts[0]} ${teacherNameParts[1].charAt(0)}.` : teacher?.name || 'N/A';
+    const teacherShortName = teacher ? (teacherNameParts.length > 1 ? `${teacherNameParts[0]} ${teacherNameParts[1].charAt(0)}.` : teacher.name) : 'Sin Docente';
 
 
     const sessionTypeColors = {
@@ -1890,7 +1886,7 @@ const ScheduleCard: React.FC<{
             <div className="font-bold text-gray-800 dark:text-gray-100 text-center">{course?.name || entry.courseId}</div>
             <div className="text-gray-600 dark:text-gray-300 text-center">{`Grupo ${entry.studentGroupId.split('-')[1]}`}</div>
             <div className="text-gray-600 dark:text-gray-400 truncate text-center">{teacherShortName}</div>
-            <div className="text-gray-500 dark:text-gray-400 font-semibold text-center">{room?.name || 'N/A'}</div>
+            <div className="text-gray-500 dark:text-gray-400 font-semibold text-center">{room?.name || 'Sin Ambiente'}</div>
             <button onClick={(e) => { e.stopPropagation(); onTogglePin(entry.id); }} className="absolute top-1 right-1 p-0.5 rounded-full hover:bg-black/10">
                 <Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-3 h-3 ${entry.isPinned ? 'text-rose-600' : 'text-gray-500'}`} />
             </button>
@@ -1960,36 +1956,33 @@ const EscuelaView: React.FC<{
                         
                         if (processedAssignments.has(assignmentKey)) return;
 
-                        // Add to view if it has a room assigned, even if not scheduled.
-                        if (subGroupAssignment.roomId) {
-                             const teacher = teachers.find(t => t.id === subGroupAssignment.teacherId);
-                             const room = rooms.find(r => r.id === subGroupAssignment.roomId);
-                             const studentGroup = studentGroups.find(sg => sg.year === getCourseYear(course.id) && sg.group === group.group);
-                            
-                             const dummyEntry: ScheduleEntry = {
-                                id: `dummy_${assignmentKey}`,
-                                courseId: course.id,
-                                teacherId: subGroupAssignment.teacherId,
-                                roomId: subGroupAssignment.roomId,
-                                studentGroupId: studentGroupId,
-                                day: '' as any,
-                                timeSlot: -1,
-                                sessionType: sessionType,
-                                isPinned: false,
-                             };
-                             
-                             rows.push({
-                                 id: dummyEntry.id,
-                                 entry: dummyEntry,
-                                 course,
-                                 teacher,
-                                 room,
-                                 studentGroup,
-                                 subGroupAssignment,
-                             });
-                             // Mark as processed so we don't add it multiple times
-                             processedAssignments.add(assignmentKey);
-                        }
+                        const teacher = teachers.find(t => t.id === subGroupAssignment.teacherId);
+                        const room = rooms.find(r => r.id === subGroupAssignment.roomId);
+                        const studentGroup = studentGroups.find(sg => sg.year === getCourseYear(course.id) && sg.group === group.group);
+                        
+                        const dummyEntry: ScheduleEntry = {
+                            id: `dummy_${assignmentKey}`,
+                            courseId: course.id,
+                            teacherId: subGroupAssignment.teacherId,
+                            roomId: subGroupAssignment.roomId || null,
+                            studentGroupId: studentGroupId,
+                            day: '' as any,
+                            timeSlot: -1,
+                            sessionType: sessionType,
+                            isPinned: false,
+                        };
+                        
+                        rows.push({
+                            id: dummyEntry.id,
+                            entry: dummyEntry,
+                            course,
+                            teacher,
+                            room,
+                            studentGroup,
+                            subGroupAssignment,
+                        });
+                        // Mark as processed so we don't add it multiple times
+                        processedAssignments.add(assignmentKey);
                     });
                 });
             });

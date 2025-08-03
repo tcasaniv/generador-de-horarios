@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, ChangeEvent, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Course, Teacher, Room, ScheduleEntry, SemesterCourse, Tab, Availability, SessionType, Day, StudentGroup, SortConfig, SemesterCourseGroup, AppState, UnscheduledUnit, ClassUnit, Conflict, SubgroupAssignment, UnassignedAssignment } from './types';
+import { Course, Teacher, Room, ScheduleEntry, SemesterCourse, Tab, Availability, SessionType, Day, StudentGroup, SortConfig, SemesterCourseGroup, AppState, UnscheduledUnit, ClassUnit, Conflict, SubgroupAssignment, UnassignedAssignment, ScheduleConflict } from './types';
 import { DAYS_OF_WEEK, TIME_SLOTS, FULL_AVAILABILITY } from './constants';
-import { generateSchedule, fixSchedule, validateMove, getCourseYear } from './services/scheduler';
+import { generateSchedule, fixSchedule, validateMove, getCourseYear, findAllConflicts } from './services/scheduler';
 import { Icon } from './components/icons';
 
 // --- Helper & Hook Definitions ---
@@ -103,6 +103,10 @@ function App() {
     const [notification, setNotification] = useState<string | null>(null);
     const [compactTeachers, setCompactTeachers] = useState(true);
     const [compactStudents, setCompactStudents] = useState(true);
+
+    const scheduleConflicts = useMemo(() => {
+        return findAllConflicts(state);
+    }, [state]);
     
     // --- Data Persistence ---
     useEffect(() => {
@@ -770,7 +774,7 @@ function App() {
                          <SemesterPlanView courses={courses} teachers={teachers} rooms={rooms} semesterPlan={semesterPlan} setSemesterPlan={handleSemesterPlanUpdate} onDeleteGroup={handleDeleteSemesterGroup} onImport={(e) => handleImport(e, 'semesterPlan')} openModal={(type, data) => setModalState({ type, data })} />
                     </div>
                     <div style={{ display: activeTab === Tab.TIMETABLE ? 'block' : 'none' }}>
-                         <TimetableView state={state} onMoveEntry={handleMoveEntry} onTogglePin={togglePinEntry} onScheduleUpdate={handleScheduleUpdate} unscheduledUnits={unscheduledUnits} setUnscheduledUnits={setUnscheduledUnits} teacherWorkload={teacherWorkload} openEntryCreator={handleOpenEntryCreator} openEntryEditor={handleOpenEntryEditor} />
+                         <TimetableView state={state} onMoveEntry={handleMoveEntry} onTogglePin={togglePinEntry} onScheduleUpdate={handleScheduleUpdate} unscheduledUnits={unscheduledUnits} setUnscheduledUnits={setUnscheduledUnits} teacherWorkload={teacherWorkload} openEntryCreator={handleOpenEntryCreator} openEntryEditor={handleOpenEntryEditor} conflicts={scheduleConflicts} />
                     </div>
                     <div style={{ display: activeTab === Tab.ATTENDANCE_REPORT ? 'block' : 'none' }}>
                         <AttendanceReportView state={state}/>
@@ -1554,11 +1558,12 @@ const TimetableView: React.FC<{
     teacherWorkload: any;
     openEntryCreator: (day: Day, timeSlot: number) => void;
     openEntryEditor: (entry: ScheduleEntry) => void;
+    conflicts: ScheduleConflict[];
 }> = (props) => {
     const [viewType, setViewType] = useState<'teacher' | 'room' | 'studentGroup' | 'escuela'>('escuela');
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
-    const { state } = props;
+    const { state, conflicts } = props;
     const { teachers, rooms, studentGroups } = state;
 
     useEffect(() => {
@@ -1687,12 +1692,24 @@ const TimetableView: React.FC<{
                 </div>
                  <button onClick={handlePrint} className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">Imprimir</button>
             </div>
+
+            {conflicts.length > 0 && (
+                <div className="noprint p-4 bg-red-100 border-l-4 border-red-500 text-red-800 dark:bg-red-900/30 dark:text-red-200 rounded-r-lg" role="alert">
+                    <div className="flex">
+                        <Icon name="alert" className="w-5 h-5 mr-3 mt-1 flex-shrink-0" />
+                        <div>
+                            <p className="font-bold">Advertencia: Se han detectado conflictos en el horario.</p>
+                            <p className="text-sm">Los elementos con conflictos están resaltados. Pase el cursor sobre los elementos o iconos de advertencia para ver los detalles.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
             
             {props.unscheduledUnits.length > 0 && <UnscheduledListView units={props.unscheduledUnits} courses={state.courses} teachers={state.teachers} onDismiss={() => props.setUnscheduledUnits([])} />}
             
             <div className="print-table-container bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
                 {viewType === 'escuela' ? (
-                     <EscuelaView {...props} />
+                     <EscuelaView {...props} conflicts={conflicts} />
                 ) : (
                     <>
                         <ScheduleGrid
@@ -1705,6 +1722,7 @@ const TimetableView: React.FC<{
                            onTogglePin={props.onTogglePin}
                            onOpenCreator={props.openEntryCreator}
                            onOpenEditor={props.openEntryEditor}
+                           conflicts={conflicts}
                         />
                         {viewType === 'studentGroup' ? (
                             <StudentGroupAssignmentStatusView state={state} selectedId={selectedId} />
@@ -1727,7 +1745,8 @@ const ScheduleGrid: React.FC<{
     onTogglePin: (entryId: string) => void;
     onOpenCreator: (day: Day, timeSlot: number) => void;
     onOpenEditor: (entry: ScheduleEntry) => void;
-}> = ({ entries, allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor }) => {
+    conflicts: ScheduleConflict[];
+}> = ({ entries, allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor, conflicts }) => {
     const gridData = useMemo(() => {
         const grid: { [key: string]: { entry: ScheduleEntry; rowSpan: number } | 'merged' | null } = {};
 
@@ -1805,6 +1824,7 @@ const ScheduleGrid: React.FC<{
                                         timeSlot={timeIndex}
                                         entry={entry}
                                         rowSpan={rowSpan}
+                                        conflicts={conflicts}
                                         {...{ allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor }}
                                     />
                                 );
@@ -1829,7 +1849,8 @@ const TimeSlotCell: React.FC<{
     onTogglePin: (entryId: string) => void;
     onOpenCreator: (day: Day, timeSlot: number) => void;
     onOpenEditor: (entry: ScheduleEntry) => void;
-}> = ({ day, timeSlot, entry, rowSpan, allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor }) => {
+    conflicts: ScheduleConflict[];
+}> = ({ day, timeSlot, entry, rowSpan, allCourses, allTeachers, allRooms, onMoveEntry, onTogglePin, onOpenCreator, onOpenEditor, conflicts }) => {
     const [, drop] = useDrop(() => ({
         accept: 'SCHEDULE_ENTRY',
         drop: (item: { id: string }) => onMoveEntry(item.id, day, timeSlot),
@@ -1845,7 +1866,7 @@ const TimeSlotCell: React.FC<{
 
     return (
         <td ref={drop as any} onDoubleClick={handleDoubleClick} rowSpan={rowSpan} className="p-0.5 border dark:border-gray-600 w-60 align-middle relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50">
-            {entry && <ScheduleCard entry={entry} allCourses={allCourses} allTeachers={allTeachers} allRooms={allRooms} onTogglePin={onTogglePin} onDoubleClick={() => onOpenEditor(entry)} />}
+            {entry && <ScheduleCard entry={entry} allCourses={allCourses} allTeachers={allTeachers} allRooms={allRooms} onTogglePin={onTogglePin} onDoubleClick={() => onOpenEditor(entry)} conflicts={conflicts} />}
         </td>
     );
 };
@@ -1857,7 +1878,8 @@ const ScheduleCard: React.FC<{
     allRooms: Room[];
     onTogglePin: (entryId: string) => void;
     onDoubleClick: (entry: ScheduleEntry) => void;
-}> = ({ entry, allCourses, allTeachers, allRooms, onTogglePin, onDoubleClick }) => {
+    conflicts: ScheduleConflict[];
+}> = ({ entry, allCourses, allTeachers, allRooms, onTogglePin, onDoubleClick, conflicts }) => {
     const [{ isDragging }, drag] = useDrag(() => ({
         type: 'SCHEDULE_ENTRY',
         item: { id: entry.id },
@@ -1873,6 +1895,7 @@ const ScheduleCard: React.FC<{
     const teacherNameParts = teacher?.name.split(' ') || [];
     const teacherShortName = teacher ? (teacherNameParts.length > 1 ? `${teacherNameParts[0]} ${teacherNameParts[1].charAt(0)}.` : teacher.name) : 'Sin Docente';
 
+    const entryConflicts = useMemo(() => conflicts.filter(c => c.entryIds.includes(entry.id)), [conflicts, entry.id]);
 
     const sessionTypeColors = {
         theory: 'bg-blue-100 border-blue-400 dark:bg-blue-900/50 dark:border-blue-600',
@@ -1880,16 +1903,28 @@ const ScheduleCard: React.FC<{
         lab: 'bg-purple-100 border-purple-400 dark:bg-purple-900/50 dark:border-purple-600',
         seminar: 'bg-orange-100 border-orange-400 dark:bg-orange-900/50 dark:border-orange-600',
     };
+    
+    const cardClasses = entryConflicts.length > 0
+        ? 'bg-red-100 border-red-500 dark:bg-red-900/50 dark:border-red-600 border-2'
+        : `${sessionTypeColors[entry.sessionType]} border`;
 
     return (
-        <div ref={drag as any} onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(entry); }} className={`p-1.5 rounded-md h-full text-xs shadow-sm cursor-grab ${sessionTypeColors[entry.sessionType]} ${isDragging ? 'opacity-50' : ''}`}>
+        <div 
+            ref={drag as any} 
+            onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(entry); }} 
+            className={`relative p-1.5 rounded-md h-full text-xs shadow-sm cursor-grab ${cardClasses} ${isDragging ? 'opacity-50' : ''}`}
+            title={entryConflicts.map(c => c.message).join('\n')}
+        >
             <div className="font-bold text-gray-800 dark:text-gray-100 text-center">{course?.name || entry.courseId}</div>
             <div className="text-gray-600 dark:text-gray-300 text-center">{`Grupo ${entry.studentGroupId.split('-')[1]}`}</div>
             <div className="text-gray-600 dark:text-gray-400 truncate text-center">{teacherShortName}</div>
             <div className="text-gray-500 dark:text-gray-400 font-semibold text-center">{room?.name || 'Sin Ambiente'}</div>
-            <button onClick={(e) => { e.stopPropagation(); onTogglePin(entry.id); }} className="absolute top-1 right-1 p-0.5 rounded-full hover:bg-black/10">
-                <Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-3 h-3 ${entry.isPinned ? 'text-rose-600' : 'text-gray-500'}`} />
-            </button>
+            <div className="absolute top-1 right-1 flex items-center space-x-1">
+                 {entryConflicts.length > 0 && <Icon name="alert" className="w-3.5 h-3.5 text-red-500" />}
+                <button onClick={(e) => { e.stopPropagation(); onTogglePin(entry.id); }} className="p-0.5 rounded-full hover:bg-black/10">
+                    <Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-3 h-3 ${entry.isPinned ? 'text-rose-600' : 'text-gray-500'}`} />
+                </button>
+            </div>
         </div>
     );
 };
@@ -1900,7 +1935,8 @@ const EscuelaView: React.FC<{
     onScheduleUpdate: (entryId: string, field: keyof ScheduleEntry, value: any) => void;
     openEntryEditor: (entry: ScheduleEntry) => void;
     teacherWorkload: any;
-}> = ({ state, onTogglePin, onScheduleUpdate, openEntryEditor, teacherWorkload }) => {
+    conflicts: ScheduleConflict[];
+}> = ({ state, onTogglePin, onScheduleUpdate, openEntryEditor, teacherWorkload, conflicts }) => {
     const { schedule, courses, teachers, rooms, studentGroups, semesterPlan } = state;
     const [editingCell, setEditingCell] = useState<string | null>(null); // "entryId-field"
 
@@ -2065,6 +2101,7 @@ const EscuelaView: React.FC<{
                         const {id, entry, course, teacher, room, studentGroup, subGroupAssignment} = row;
                         const workload = teacher ? teacherWorkload[teacher.id] : null;
                         const isDummy = id.startsWith('dummy_');
+                        const entryConflicts = isDummy ? [] : conflicts.filter(c => c.entryIds.includes(id));
                         
                         // Define compare functions
                         const compareById = (v: any) => v?.id;
@@ -2100,9 +2137,21 @@ const EscuelaView: React.FC<{
                         ) : (room?.name || 'Por asignar');
 
                         return (
-                             <tr key={id} className="dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                             <tr key={id} className={`dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${entryConflicts.length > 0 ? 'bg-red-50 dark:bg-red-900/40' : ''}`}>
                                 <td className="p-1 border dark:border-gray-600 text-center align-middle">
-                                    {!isDummy && <button onClick={() => onTogglePin(entry.id)}><Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-4 h-4 ${entry.isPinned ? 'text-rose-500' : 'text-gray-400'}`} /></button>}
+                                    <div className="flex items-center justify-center space-x-1">
+                                        {!isDummy && <button onClick={() => onTogglePin(entry.id)}><Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-4 h-4 ${entry.isPinned ? 'text-rose-500' : 'text-gray-400'}`} /></button>}
+                                        {entryConflicts.length > 0 && (
+                                            <div className="relative group">
+                                                <Icon name="alert" className="w-4 h-4 text-red-500" />
+                                                <div className="absolute z-10 hidden group-hover:block w-64 p-2 text-left text-sm text-white bg-gray-900 rounded-lg shadow-lg left-1/2 bottom-0 mb-2 before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-t-gray-900">
+                                                    <ul className="list-disc list-inside space-y-1">
+                                                        {entryConflicts.map((c, i) => <li key={i}>{c.message}</li>)}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </td>
                                 
                                 {renderMergedCell(index, row, 'course', course?.competencia || '-', { compareFn: compareById })}

@@ -141,6 +141,10 @@ export interface Conflict {
   message: string;
 }
 
+export interface ScheduleConflict extends Conflict {
+  entryIds: string[];
+}
+
 export interface UnassignedAssignment {
   courseId: string;
   courseName: string;

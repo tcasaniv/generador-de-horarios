@@ -1375,14 +1375,13 @@ const SubgroupEditor: React.FC<{
 
 const UnassignedAssignmentsView: React.FC<{
     assignments: UnassignedAssignment[];
-    viewType: 'teacher' | 'room' | 'studentGroup';
+    viewType: 'teacher' | 'room';
 }> = ({ assignments, viewType }) => {
     if (assignments.length === 0) return null;
 
     const titleMap = {
         teacher: "Cursos Asignados al Docente sin Horario Fijo",
         room: "Cursos Asignados al Ambiente sin Horario Fijo",
-        studentGroup: "Cursos del Grupo sin Horario Fijo",
     };
 
     return (
@@ -1412,6 +1411,105 @@ const UnassignedAssignmentsView: React.FC<{
     );
 };
 
+const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: string | null; }> = ({ state, selectedId }) => {
+    
+    const assignmentsForGroup = useMemo(() => {
+        if (!selectedId) return [];
+        
+        const selectedGroupInfo = state.studentGroups.find(sg => sg.id === selectedId);
+        if (!selectedGroupInfo) return [];
+    
+        const assignments: any[] = [];
+    
+        state.semesterPlan.forEach(planItem => {
+            if (!planItem.isActive) return;
+    
+            const course = state.courses.find(c => c.id === planItem.courseId);
+            if (!course || getCourseYear(course.id) !== selectedGroupInfo.year) return;
+            
+            planItem.groups.forEach(group => {
+                if (group.group !== selectedGroupInfo.group) return;
+    
+                (['theory', 'practice', 'lab', 'seminar'] as const).forEach(sessionType => {
+                    const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
+                    if (requiredHours === 0) return;
+    
+                    group[sessionType].forEach((assignment, subIndex) => {
+                        const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
+                        
+                        // Find all scheduled entries for this specific assignment
+                        const scheduledEntries = state.schedule.filter(e => e.studentGroupId === studentGroupId && e.sessionType === sessionType);
+    
+                        const teacher = state.teachers.find(t => t.id === assignment.teacherId);
+                        const room = state.rooms.find(r => r.id === assignment.roomId); // Default room
+    
+                        assignments.push({
+                            key: `${studentGroupId}-${sessionType}`,
+                            course,
+                            teacher,
+                            defaultRoom: room,
+                            sessionType,
+                            studentGroupId,
+                            requiredHours,
+                            scheduledEntries,
+                            assignment, // The original assignment object from plan
+                        });
+                    });
+                });
+            });
+        });
+    
+        return assignments.sort((a,b) => a.course.name.localeCompare(b.course.name));
+    }, [state, selectedId]);
+
+    if (assignmentsForGroup.length === 0 && selectedId) {
+        return <div className="mt-6 text-center text-gray-500 dark:text-gray-400 noprint">No hay cursos planificados para este grupo.</div>;
+    }
+
+    return (
+        <div className="mt-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 rounded-lg noprint">
+            <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 mb-3">Plan de Cursos para el Grupo</h3>
+            <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+                {assignmentsForGroup.map(item => {
+                    const isFullyScheduled = item.scheduledEntries.length >= item.requiredHours;
+                    const statusColor = isFullyScheduled ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400';
+                    const statusIcon = isFullyScheduled ? '✓' : '…';
+                    const borderColor = isFullyScheduled ? 'border-green-500' : 'border-amber-500';
+
+                    return (
+                        <div key={item.key} className={`p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border-l-4 ${borderColor}`}>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold text-gray-900 dark:text-gray-100">{item.course.name}</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300 capitalize">{item.sessionType} - Subgrupo {item.studentGroupId.split('-')[2]}</p>
+                                </div>
+                                <div className={`font-semibold text-sm ${statusColor} flex items-center`}>
+                                    <span className="text-lg mr-1 font-mono">{statusIcon}</span> {item.scheduledEntries.length} / {item.requiredHours} horas
+                                </div>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                                <p><strong>Docente:</strong> {item.teacher?.name || <span className="italic">Sin Asignar</span>}</p>
+                                <p><strong>Ambiente (defecto):</strong> {item.defaultRoom?.name || <span className="italic">Sin Asignar</span>}</p>
+                            </div>
+                            {item.scheduledEntries.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <p className="text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Horarios Programados:</p>
+                                    <ul className="text-xs space-y-1 text-gray-600 dark:text-gray-300 columns-2">
+                                        {item.scheduledEntries.map((e: ScheduleEntry) => {
+                                            const room = state.rooms.find(r => r.id === e.roomId);
+                                            return <li key={e.id}>{e.day.substring(0,3)} {TIME_SLOTS[e.timeSlot].split(' - ')[0]} en <strong>{room?.name || 'N/A'}</strong></li>
+                                        })}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    );
+}
+
 const TimetableView: React.FC<{
     state: AppState;
     onMoveEntry: (entryId: string, newDay: Day, newTimeSlot: number) => void;
@@ -1437,7 +1535,7 @@ const TimetableView: React.FC<{
     }, [viewType, teachers, rooms, studentGroups, selectedId]);
 
     const unassignedAssignments = useMemo((): UnassignedAssignment[] => {
-        if (!selectedId || viewType === 'escuela') {
+        if (!selectedId || viewType === 'escuela' || viewType === 'studentGroup') {
             return [];
         }
     
@@ -1480,9 +1578,6 @@ const TimetableView: React.FC<{
                             case 'room':
                                 if (assignment.roomId === selectedId) isRelevant = true;
                                 break;
-                            case 'studentGroup':
-                                if (studentGroupInfo?.id === selectedId) isRelevant = true;
-                                break;
                         }
     
                         if (isRelevant) {
@@ -1518,6 +1613,22 @@ const TimetableView: React.FC<{
 
     const handlePrint = () => window.print();
 
+    const filteredEntries = useMemo(() => {
+        if (!selectedId || viewType === 'escuela') return [];
+        return state.schedule.filter(e => {
+            if (viewType === 'teacher') return e.teacherId === selectedId;
+            if (viewType === 'room') return e.roomId === selectedId;
+            if (viewType === 'studentGroup') {
+                const studentGroup = studentGroups.find(sg => sg.id === selectedId);
+                if (!studentGroup) return false;
+                const courseYear = getCourseYear(e.courseId);
+                const groupLetter = e.studentGroupId.split('-')[1];
+                return courseYear === studentGroup.year && groupLetter === studentGroup.group;
+            }
+            return false;
+        });
+    }, [state.schedule, selectedId, viewType, studentGroups]);
+
     return (
         <div className="space-y-4">
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex justify-between items-center noprint">
@@ -1533,7 +1644,7 @@ const TimetableView: React.FC<{
                         <option value="studentGroup">Grupo de Alumnos</option>
                     </select>
                     {viewType !== 'escuela' && (
-                         <select value={selectedId || ''} onChange={e => setSelectedId(e.target.value)} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
+                         <select value={selectedId || ''} onChange={e => setSelectedId(e.target.value)} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 min-w-[200px]">
                              {viewType === 'teacher' && teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                              {viewType === 'room' && rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                              {viewType === 'studentGroup' && studentGroups.map(sg => <option key={sg.id} value={sg.id}>{`Año ${sg.year} - Grupo ${sg.group}`}</option>)}
@@ -1552,17 +1663,7 @@ const TimetableView: React.FC<{
                     <>
                         <ScheduleGrid
                            key={selectedId}
-                           entries={state.schedule.filter(e => {
-                               if (!selectedId) return false;
-                               if (viewType === 'teacher') return e.teacherId === selectedId;
-                               if (viewType === 'room') return e.roomId === selectedId;
-                               if (viewType === 'studentGroup') {
-                                   const courseYear = getCourseYear(e.courseId);
-                                   const studentGroup = studentGroups.find(sg => sg.id === selectedId);
-                                   return courseYear === studentGroup?.year && e.studentGroupId.split('-')[1] === studentGroup.group;
-                               }
-                               return false;
-                           })}
+                           entries={filteredEntries}
                            allCourses={state.courses}
                            allTeachers={state.teachers}
                            allRooms={state.rooms}
@@ -1571,7 +1672,11 @@ const TimetableView: React.FC<{
                            onOpenCreator={props.openEntryCreator}
                            onOpenEditor={props.openEntryEditor}
                         />
-                        <UnassignedAssignmentsView assignments={unassignedAssignments} viewType={viewType} />
+                        {viewType === 'studentGroup' ? (
+                            <StudentGroupAssignmentStatusView state={state} selectedId={selectedId} />
+                        ) : (
+                             <UnassignedAssignmentsView assignments={unassignedAssignments} viewType={viewType as 'teacher' | 'room'} />
+                        )}
                     </>
                 )}
             </div>

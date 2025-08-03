@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, ChangeEvent, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -1434,27 +1435,42 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
                     const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
                     if (requiredHours === 0) return;
     
-                    group[sessionType].forEach((assignment, subIndex) => {
-                        const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
-                        
-                        // Find all scheduled entries for this specific assignment
-                        const scheduledEntries = state.schedule.filter(e => e.studentGroupId === studentGroupId && e.sessionType === sessionType);
-    
-                        const teacher = state.teachers.find(t => t.id === assignment.teacherId);
-                        const room = state.rooms.find(r => r.id === assignment.roomId); // Default room
-    
+                    // If no subgroups are defined for this session type, show a placeholder.
+                    if (group[sessionType].length === 0) {
                         assignments.push({
-                            key: `${studentGroupId}-${sessionType}`,
+                            key: `${planItem.courseId}-${group.group}-${sessionType}-placeholder`,
                             course,
-                            teacher,
-                            defaultRoom: room,
+                            teacher: null,
+                            defaultRoom: null,
                             sessionType,
-                            studentGroupId,
+                            studentGroupId: `${course.id}-${group.group}-0`, // Placeholder ID
                             requiredHours,
-                            scheduledEntries,
-                            assignment, // The original assignment object from plan
+                            scheduledEntries: [],
+                            isPlaceholder: true, // Add a flag to identify these
+                            assignment: null,
                         });
-                    });
+                    } else {
+                        // If subgroups exist, process them as before.
+                        group[sessionType].forEach((assignment, subIndex) => {
+                            const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
+                            const scheduledEntries = state.schedule.filter(e => e.studentGroupId === studentGroupId && e.sessionType === sessionType);
+                            const teacher = state.teachers.find(t => t.id === assignment.teacherId);
+                            const room = state.rooms.find(r => r.id === assignment.roomId);
+    
+                            assignments.push({
+                                key: `${studentGroupId}-${sessionType}`,
+                                course,
+                                teacher,
+                                defaultRoom: room,
+                                sessionType,
+                                studentGroupId,
+                                requiredHours,
+                                scheduledEntries,
+                                isPlaceholder: false,
+                                assignment,
+                            });
+                        });
+                    }
                 });
             });
         });
@@ -1471,10 +1487,30 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
             <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 mb-3">Plan de Cursos para el Grupo</h3>
             <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
                 {assignmentsForGroup.map(item => {
+                    if (item.isPlaceholder) {
+                        return (
+                             <div key={item.key} className="p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border-l-4 border-gray-400 dark:border-gray-500">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold text-gray-900 dark:text-gray-100">{item.course.name}</p>
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 capitalize">{item.sessionType}</p>
+                                    </div>
+                                    <div className="font-semibold text-sm text-gray-500 dark:text-gray-400 flex items-center">
+                                        {item.requiredHours} horas requeridas
+                                    </div>
+                                </div>
+                                <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 italic flex items-center">
+                                    <Icon name="info" className="w-3 h-3 inline-block mr-1 flex-shrink-0"/>
+                                    <span>Necesita configurar subgrupo(s) en el Plan de Funcionamiento.</span>
+                                </div>
+                            </div>
+                        );
+                    }
+
                     const isFullyScheduled = item.scheduledEntries.length >= item.requiredHours;
                     const statusColor = isFullyScheduled ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400';
                     const statusIcon = isFullyScheduled ? '✓' : '…';
-                    const borderColor = isFullyScheduled ? 'border-green-500' : 'border-amber-500';
+                    const borderColor = isFullyScheduled ? 'border-green-500' : (item.scheduledEntries.length > 0 ? 'border-amber-500' : 'border-red-500');
 
                     return (
                         <div key={item.key} className={`p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border-l-4 ${borderColor}`}>
@@ -1488,8 +1524,8 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
                                 </div>
                             </div>
                             <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 grid grid-cols-1 md:grid-cols-2 gap-x-4">
-                                <p><strong>Docente:</strong> {item.teacher?.name || <span className="italic">Sin Asignar</span>}</p>
-                                <p><strong>Ambiente (defecto):</strong> {item.defaultRoom?.name || <span className="italic">Sin Asignar</span>}</p>
+                                <p><strong>Docente:</strong> {item.teacher?.name || <span className="italic text-red-500">Sin Asignar</span>}</p>
+                                <p><strong>Ambiente (defecto):</strong> {item.defaultRoom?.name || <span className="italic text-red-500">Sin Asignar</span>}</p>
                             </div>
                             {item.scheduledEntries.length > 0 && (
                                 <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">

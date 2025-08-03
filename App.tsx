@@ -1903,6 +1903,12 @@ const ScheduleCard: React.FC<{
         lab: 'bg-purple-100 border-purple-400 dark:bg-purple-900/50 dark:border-purple-600',
         seminar: 'bg-orange-100 border-orange-400 dark:bg-orange-900/50 dark:border-orange-600',
     };
+    const sessionTypeNames = {
+        theory: 'Horas de teoría',
+        practice: 'Horas de práctica',
+        lab: 'Horas de laboratorio',
+        seminar: 'Horas de seminario',
+    };
     
     const cardClasses = entryConflicts.length > 0
         ? 'bg-red-100 border-red-500 dark:bg-red-900/50 dark:border-red-600 border-2'
@@ -1916,7 +1922,8 @@ const ScheduleCard: React.FC<{
             title={entryConflicts.map(c => c.message).join('\n')}
         >
             <div className="font-bold text-gray-800 dark:text-gray-100 text-center">{course?.name || entry.courseId}</div>
-            <div className="text-gray-600 dark:text-gray-300 text-center">{`Grupo ${entry.studentGroupId.split('-')[1]}`}</div>
+            <div className="text-gray-600 dark:text-gray-300 text-center">{`Grupo ${entry.studentGroupId.split('-')[1]}${entry.sessionType=='lab'?entry.studentGroupId.split('-')[2]:''}`}</div>
+            <div className="text-gray-500 dark:text-gray-400 font-semibold text-center">{entry.sessionType ? sessionTypeNames[entry.sessionType] : 'Sin tipo de hora'}</div>
             <div className="text-gray-600 dark:text-gray-400 truncate text-center">{teacherShortName}</div>
             <div className="text-gray-500 dark:text-gray-400 font-semibold text-center">{room?.name || 'Sin Ambiente'}</div>
             <div className="absolute top-1 right-1 flex items-center space-x-1">

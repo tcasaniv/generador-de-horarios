@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, ChangeEvent, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -1435,27 +1436,26 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
                     const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
                     if (requiredHours === 0) return;
     
-                    // If no subgroups are defined for this session type, show a placeholder.
                     if (group[sessionType].length === 0) {
                         assignments.push({
                             key: `${planItem.courseId}-${group.group}-${sessionType}-placeholder`,
                             course,
-                            teacher: null,
-                            defaultRoom: null,
                             sessionType,
-                            studentGroupId: `${course.id}-${group.group}-0`, // Placeholder ID
                             requiredHours,
+                            scheduledHoursCount: 0,
                             scheduledEntries: [],
-                            isPlaceholder: true, // Add a flag to identify these
+                            isPlaceholder: true,
                             assignment: null,
                         });
                     } else {
-                        // If subgroups exist, process them as before.
                         group[sessionType].forEach((assignment, subIndex) => {
                             const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
                             const scheduledEntries = state.schedule.filter(e => e.studentGroupId === studentGroupId && e.sessionType === sessionType);
                             const teacher = state.teachers.find(t => t.id === assignment.teacherId);
                             const room = state.rooms.find(r => r.id === assignment.roomId);
+                            
+                            // Count is the greater of what's in the final schedule or manually assigned in the plan.
+                            const scheduledHoursCount = Math.max(scheduledEntries.length, assignment.manualSlots?.length || 0);
     
                             assignments.push({
                                 key: `${studentGroupId}-${sessionType}`,
@@ -1465,7 +1465,8 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
                                 sessionType,
                                 studentGroupId,
                                 requiredHours,
-                                scheduledEntries,
+                                scheduledEntries, // Still pass this for detailed display
+                                scheduledHoursCount, // Pass the new count
                                 isPlaceholder: false,
                                 assignment,
                             });
@@ -1506,11 +1507,12 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
                             </div>
                         );
                     }
-
-                    const isFullyScheduled = item.scheduledEntries.length >= item.requiredHours;
+                    
+                    const scheduledCount = item.scheduledHoursCount || 0;
+                    const isFullyScheduled = scheduledCount >= item.requiredHours;
                     const statusColor = isFullyScheduled ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400';
                     const statusIcon = isFullyScheduled ? '✓' : '…';
-                    const borderColor = isFullyScheduled ? 'border-green-500' : (item.scheduledEntries.length > 0 ? 'border-amber-500' : 'border-red-500');
+                    const borderColor = isFullyScheduled ? 'border-green-500' : (scheduledCount > 0 ? 'border-amber-500' : 'border-red-500');
 
                     return (
                         <div key={item.key} className={`p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border-l-4 ${borderColor}`}>
@@ -1520,7 +1522,7 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
                                     <p className="text-sm text-gray-600 dark:text-gray-300 capitalize">{item.sessionType} - Subgrupo {item.studentGroupId.split('-')[2]}</p>
                                 </div>
                                 <div className={`font-semibold text-sm ${statusColor} flex items-center`}>
-                                    <span className="text-lg mr-1 font-mono">{statusIcon}</span> {item.scheduledEntries.length} / {item.requiredHours} horas
+                                    <span className="text-lg mr-1 font-mono">{statusIcon}</span> {scheduledCount} / {item.requiredHours} horas
                                 </div>
                             </div>
                             <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 grid grid-cols-1 md:grid-cols-2 gap-x-4">

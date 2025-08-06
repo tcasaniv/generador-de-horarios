@@ -130,7 +130,7 @@ function App() {
     const [state, setState] = useState<AppState>(initialState);
     const { courses, teachers, rooms, studentGroups, semesterPlan, schedule } = state;
 
-    const [leftPaneTab, setLeftPaneTab] = useState<Tab>(Tab.SEMESTER_PLAN);
+    const [leftPaneTab, setLeftPaneTab] = useState<Tab>(Tab.ASIGNATURAS);
     const [rightPaneTab, setRightPaneTab] = useState<Tab>(Tab.TIMETABLE);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -1923,7 +1923,7 @@ const TimetableView: React.FC<{
     openEntryEditor: (entry: ScheduleEntry) => void;
     conflicts: ScheduleConflict[];
 }> = (props) => {
-    const [viewType, setViewType] = useState<'teacher' | 'room' | 'studentGroup' | 'escuela'>('escuela');
+    const [viewType, setViewType] = useState<'teacher' | 'room' | 'studentGroup' | 'escuela'>('studentGroup');
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
     const { state, conflicts } = props;

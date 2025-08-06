@@ -809,7 +809,7 @@ function App() {
                                 </button>
                             )}
                             <button onClick={() => {setIsLeftPaneVisible(true); setIsRightPaneVisible(true);}} className="absolute top-12 right-2 p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" title="Mostrar paneles">
-                                <Icon name="layout-sidebar-left-expand" />
+                                <Icon name="view-columns" />
                             </button>
                             <QuickStartGuide />
                         </div>
@@ -832,11 +832,11 @@ function App() {
                                 </div>
                             </div>
                             <button onClick={() => setIsLeftPaneVisible(false)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Ocultar este panel">
-                                <Icon name="layout-sidebar-left-collapse" />
+                                <Icon name="chevron-double-left" />
                             </button>
                              {!isRightPaneVisible && (
                                 <button onClick={() => setIsRightPaneVisible(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Mostrar panel derecho">
-                                    <Icon name="layout-sidebar-right-expand" />
+                                    <Icon name="chevron-double-right" />
                                 </button>
                             )}
                         </nav>
@@ -850,7 +850,7 @@ function App() {
                         <nav className="bg-gray-100 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 noprint flex items-center justify-between pr-2">
                              {!isLeftPaneVisible && (
                                 <button onClick={() => setIsLeftPaneVisible(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Mostrar panel izquierdo">
-                                    <Icon name="layout-sidebar-left-expand" />
+                                    <Icon name="chevron-double-left" />
                                 </button>
                             )}
                             <div className="flex-grow max-w-7xl mx-auto px-4">
@@ -867,7 +867,7 @@ function App() {
                                 </div>
                             </div>
                              <button onClick={() => setIsRightPaneVisible(false)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Ocultar este panel">
-                                <Icon name="layout-sidebar-right-collapse" />
+                                <Icon name="chevron-double-right" />
                             </button>
                         </nav>
                         <main className="flex-grow p-6 bg-gray-50 dark:bg-gray-900 overflow-y-auto relative">

@@ -87,6 +87,41 @@ const Notification: React.FC<{ message: string; onDismiss: () => void }> = ({ me
 
 // --- App Component ---
 
+const QuickStartGuide = () => (
+    <div className="flex-grow flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-center p-8">
+        <div className="max-w-2xl">
+            <Icon name="calendar" className="w-16 h-16 text-teal-500 mx-auto mb-4" />
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">Bienvenido al Generador de Horarios Pro</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Esta es una herramienta poderosa para planificar y generar horarios académicos.
+                Para empezar, utilice los controles en la parte superior para mostrar los paneles de planificación y de horarios.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                    <h3 className="font-semibold text-lg text-gray-700 dark:text-gray-200 mb-2">1. Panel de Planificación (Izquierda)</h3>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        <li><strong className="font-semibold">Asignaturas:</strong> Defina los cursos.</li>
+                        <li><strong className="font-semibold">Ambientes:</strong> Registre aulas y laboratorios.</li>
+                        <li><strong className="font-semibold">Docentes:</strong> Gestione el personal académico.</li>
+                        <li><strong className="font-semibold">Alumnos:</strong> Defina los grupos de estudiantes.</li>
+                        <li><strong className="font-semibold">Plan de Funcionamiento:</strong> Enlace todo lo anterior.</li>
+                    </ul>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                    <h3 className="font-semibold text-lg text-gray-700 dark:text-gray-200 mb-2">2. Panel de Horarios (Derecha)</h3>
+                     <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        <li><strong className="font-semibold">Horarios:</strong> Visualice y ajuste el horario generado.</li>
+                        <li><strong className="font-semibold">Parte de Asistencia:</strong> Genere reportes.</li>
+                    </ul>
+                </div>
+            </div>
+             <p className="text-xs text-gray-500 dark:text-gray-500 mt-8">
+                Puede ocultar y mostrar los paneles y la cabecera en cualquier momento para maximizar su espacio de trabajo.
+            </p>
+        </div>
+    </div>
+);
+
 function App() {
     const initialState: AppState = {
         courses: [], teachers: [], rooms: [], studentGroups: [], semesterPlan: [], schedule: []
@@ -104,6 +139,10 @@ function App() {
     const [notification, setNotification] = useState<string | null>(null);
     const [compactTeachers, setCompactTeachers] = useState(true);
     const [compactStudents, setCompactStudents] = useState(true);
+    
+    const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+    const [isLeftPaneVisible, setIsLeftPaneVisible] = useState(true);
+    const [isRightPaneVisible, setIsRightPaneVisible] = useState(true);
 
     const scheduleConflicts = useMemo(() => {
         return findAllConflicts(state);
@@ -158,11 +197,9 @@ function App() {
     ) => {
         const items = state[itemType] as unknown as T[];
         
-        // Prevent editing ID if data already exists
         const isEditing = modalState.data?.id && items.some(item => item.id === modalState.data.id);
         const newId = isEditing ? modalState.data.id : newItem.id;
 
-        // Check for duplicates only if ID is being created or changed
         if (!isEditing || (isEditing && newId !== modalState.data.id)) {
             const duplicate = items.find(item => item.id === newId);
             if (duplicate) {
@@ -220,7 +257,7 @@ function App() {
     const runScheduler = async (schedulerFn: (typeof generateSchedule)) => {
         setIsLoading(true);
         setUnscheduledUnits([]);
-        await new Promise(resolve => setTimeout(resolve, 50)); // UX delay
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         let baseSchedule = schedule.filter(e => e.isPinned);
 
@@ -403,10 +440,9 @@ function App() {
         }));
     };
     
-    // --- File Handlers ---
     const getManualEntriesFromPlan = (plan: SemesterCourse[]): ScheduleEntry[] => {
         const entries: ScheduleEntry[] = [];
-        const addedKeys = new Set<string>(); // Key: studentGroupId-day-timeSlot
+        const addedKeys = new Set<string>();
 
         plan.filter(sc => sc.isActive).forEach(sc => {
             sc.groups.forEach((g) => {
@@ -452,11 +488,7 @@ function App() {
 
                         if (itemType === 'semesterPlan') {
                             const newPlan = jsonData as SemesterCourse[];
-                            
-                            // Keep auto-generated (unpinned) entries from the current schedule
                             const autoGeneratedEntries = state.schedule.filter(entry => !entry.isPinned);
-
-                            // Extract all new manual entries from the imported plan
                             const newManualEntries = getManualEntriesFromPlan(newPlan);
                             
                             setState(prev => ({
@@ -465,7 +497,6 @@ function App() {
                                 schedule: [...autoGeneratedEntries, ...newManualEntries]
                             }));
                         } else {
-                            // Handle import for other data types
                             setState(prev => ({...prev, [itemType]: jsonData}));
                         }
                         
@@ -478,7 +509,7 @@ function App() {
             };
             reader.readAsText(file);
         }
-        event.target.value = ''; // Reset input to allow re-importing the same file
+        event.target.value = '';
     };
 
     const handleSemesterPlanUpdate = useCallback((newPlan: SemesterCourse[] | ((prevPlan: SemesterCourse[]) => SemesterCourse[])) => {
@@ -505,7 +536,6 @@ function App() {
             
             const oldSlots = assignment.manualSlots || [];
 
-            // Update plan (purely)
             const updatedPlan = prev.semesterPlan.map(p => {
                 if (p.courseId !== courseId) return p;
                 const newGroups = p.groups.map((g, i) => {
@@ -519,18 +549,15 @@ function App() {
                 return { ...p, groups: newGroups };
             });
 
-            // Sync schedule
             const getSlotKey = (s: {day: Day, timeSlot: number}) => `${s.day}-${s.timeSlot}`;
             const oldSlotKeys = new Set(oldSlots.map(getSlotKey));
-            
             const studentGroupId = `${courseId}-${group.group}-${subGroupIndex + 1}`;
             
-            // Filter out entries that correspond to old manual slots that are now removed
             const scheduleWithoutOldEntries = prev.schedule.filter(entry => {
                 if (entry.studentGroupId === studentGroupId && entry.sessionType === session) {
                     const entrySlotKey = `${entry.day}-${entry.timeSlot}`;
                     if (oldSlotKeys.has(entrySlotKey)) {
-                        return false; // Remove, it will be re-added if it's in newSlots
+                        return false;
                     }
                 }
                 return true;
@@ -569,7 +596,6 @@ function App() {
         setModalState({ type: 'createScheduleEntry', data: { day, timeSlot } });
     };
 
-    // --- UI Render ---
     const renderModals = () => {
         if (!modalState.type) return null;
 
@@ -725,46 +751,71 @@ function App() {
     const planningTabs = [Tab.ASIGNATURAS, Tab.ROOMS, Tab.TEACHERS, Tab.STUDENT_GROUPS, Tab.SEMESTER_PLAN];
     const scheduleTabs = [Tab.TIMETABLE, Tab.ATTENDANCE_REPORT];
 
+    const leftPaneClass = isLeftPaneVisible ? (isRightPaneVisible ? "w-full md:w-1/2" : "w-full") : "hidden";
+    const rightPaneClass = isRightPaneVisible ? (isLeftPaneVisible ? "w-full md:w-1/2" : "w-full") : "hidden";
+    const mobilePaneContainerClass = isLeftPaneVisible && isRightPaneVisible ? "h-1/2" : "h-full";
+
     return (
         <DndProvider backend={HTML5Backend}>
-            <div className="min-h-screen flex flex-col">
+            <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
                 {notification && <Notification message={notification} onDismiss={() => setNotification(null)} />}
-                <header className="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center noprint">
-                    <div className="flex items-center space-x-3">
-                        <Icon name="calendar" className="w-8 h-8 text-teal-600" />
-                        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Generador de Horarios Pro</h1>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                            <div className="flex flex-col items-center">
-                                <label className="flex items-center space-x-2 text-sm cursor-pointer">
-                                    <input type="checkbox" checked={compactTeachers} onChange={() => setCompactTeachers(!compactTeachers)} className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500"/>
-                                    <span>Compactar Docentes</span>
-                                </label>
-                                 <label className="flex items-center space-x-2 text-sm cursor-pointer">
-                                    <input type="checkbox" checked={compactStudents} onChange={() => setCompactStudents(!compactStudents)} className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500"/>
-                                    <span>Compactar Alumnos</span>
-                                 </label>
+                
+                {isHeaderVisible && (
+                    <header className="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center noprint shrink-0">
+                        <div className="flex items-center space-x-3">
+                            <Icon name="calendar" className="w-8 h-8 text-teal-600" />
+                            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Generador de Horarios Pro</h1>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            {/* Controles existentes */}
+                            <div className="flex items-center space-x-2">
+                                <div className="flex flex-col items-center">
+                                    <label className="flex items-center space-x-2 text-sm cursor-pointer">
+                                        <input type="checkbox" checked={compactTeachers} onChange={() => setCompactTeachers(!compactTeachers)} className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500"/>
+                                        <span>Compactar Docentes</span>
+                                    </label>
+                                     <label className="flex items-center space-x-2 text-sm cursor-pointer">
+                                        <input type="checkbox" checked={compactStudents} onChange={() => setCompactStudents(!compactStudents)} className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500"/>
+                                        <span>Compactar Alumnos</span>
+                                     </label>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <button onClick={handleFixSchedule} disabled={isLoading} className="bg-amber-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-amber-700 disabled:bg-gray-400 flex items-center space-x-2">
-                                <Icon name="wrench" className="w-5 h-5" />
-                                <span>{isLoading ? '...' : 'Arreglar Horario'}</span>
+                            <div className="flex items-center space-x-2">
+                                <button onClick={handleFixSchedule} disabled={isLoading} className="bg-amber-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-amber-700 disabled:bg-gray-400 flex items-center space-x-2">
+                                    <Icon name="wrench" className="w-5 h-5" />
+                                    <span>{isLoading ? '...' : 'Arreglar'}</span>
+                                </button>
+                                <button onClick={handleGenerateSchedule} disabled={isLoading} className="bg-teal-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-teal-700 disabled:bg-gray-400 flex items-center space-x-2">
+                                    <Icon name="brain" className="w-5 h-5" />
+                                    <span>{isLoading ? 'Generando...' : 'Generar'}</span>
+                                </button>
+                            </div>
+                             <button onClick={() => setIsHeaderVisible(false)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Ocultar cabecera">
+                                <Icon name="chevron-up" />
                             </button>
-                            <button onClick={handleGenerateSchedule} disabled={isLoading} className="bg-teal-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-teal-700 disabled:bg-gray-400 flex items-center space-x-2">
-                                <Icon name="brain" className="w-5 h-5" />
-                                <span>{isLoading ? 'Generando...' : 'Generar Horario'}</span>
-                            </button>
                         </div>
-                    </div>
-                </header>
+                    </header>
+                )}
 
-                <div className="flex-grow flex flex-col md:flex-row">
+                <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+                    {!isLeftPaneVisible && !isRightPaneVisible && (
+                        <div className="flex-grow flex flex-col items-center justify-center">
+                             {!isHeaderVisible && (
+                                <button onClick={() => setIsHeaderVisible(true)} className="absolute top-2 right-2 p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" title="Mostrar cabecera">
+                                    <Icon name="chevron-down" />
+                                </button>
+                            )}
+                            <button onClick={() => {setIsLeftPaneVisible(true); setIsRightPaneVisible(true);}} className="absolute top-12 right-2 p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" title="Mostrar paneles">
+                                <Icon name="layout-sidebar-left-expand" />
+                            </button>
+                            <QuickStartGuide />
+                        </div>
+                    )}
+
                     {/* Left Pane */}
-                    <div className="w-full md:w-1/2 flex flex-col">
-                        <nav className="bg-gray-100 dark:bg-gray-800/50 border-b border-r border-gray-200 dark:border-gray-700 noprint">
-                            <div className="max-w-7xl mx-auto px-4">
+                    <div className={`${isLeftPaneVisible ? (isRightPaneVisible ? 'w-full md:w-1/2' : 'w-full') : 'hidden'} ${isLeftPaneVisible && isRightPaneVisible ? 'h-1/2 md:h-full' : 'h-full'} flex flex-col border-r border-gray-200 dark:border-gray-700`}>
+                        <nav className="bg-gray-100 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 noprint flex items-center justify-between pr-2">
+                            <div className="flex-grow max-w-7xl mx-auto px-4">
                                 <div className="flex justify-start space-x-4 overflow-x-auto">
                                     {planningTabs.map(tab => (
                                         <button
@@ -777,16 +828,29 @@ function App() {
                                     ))}
                                 </div>
                             </div>
+                            <button onClick={() => setIsLeftPaneVisible(false)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Ocultar este panel">
+                                <Icon name="layout-sidebar-left-collapse" />
+                            </button>
+                             {!isRightPaneVisible && (
+                                <button onClick={() => setIsRightPaneVisible(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Mostrar panel derecho">
+                                    <Icon name="layout-sidebar-right-expand" />
+                                </button>
+                            )}
                         </nav>
-                        <main className="flex-grow p-6 bg-gray-50 dark:bg-gray-900">
+                        <main className="flex-grow p-6 bg-gray-50 dark:bg-gray-900 overflow-y-auto">
                             {renderPane(leftPaneTab)}
                         </main>
                     </div>
 
                     {/* Right Pane */}
-                    <div className="w-full md:w-1/2 flex flex-col">
-                        <nav className="bg-gray-100 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 noprint">
-                            <div className="max-w-7xl mx-auto px-4">
+                    <div className={`${isRightPaneVisible ? (isLeftPaneVisible ? 'w-full md:w-1/2' : 'w-full') : 'hidden'} ${isLeftPaneVisible && isRightPaneVisible ? 'h-1/2 md:h-full' : 'h-full'} flex flex-col`}>
+                        <nav className="bg-gray-100 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 noprint flex items-center justify-between pr-2">
+                             {!isLeftPaneVisible && (
+                                <button onClick={() => setIsLeftPaneVisible(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Mostrar panel izquierdo">
+                                    <Icon name="layout-sidebar-left-expand" />
+                                </button>
+                            )}
+                            <div className="flex-grow max-w-7xl mx-auto px-4">
                                 <div className="flex justify-start space-x-4 overflow-x-auto">
                                     {scheduleTabs.map(tab => (
                                         <button
@@ -799,10 +863,13 @@ function App() {
                                     ))}
                                 </div>
                             </div>
+                             <button onClick={() => setIsRightPaneVisible(false)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Ocultar este panel">
+                                <Icon name="layout-sidebar-right-collapse" />
+                            </button>
                         </nav>
-                        <main className="flex-grow p-6 bg-gray-50 dark:bg-gray-900">
+                        <main className="flex-grow p-6 bg-gray-50 dark:bg-gray-900 overflow-y-auto relative">
                             {isLoading && (
-                                <div className="fixed inset-0 bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 z-50 flex flex-col justify-center items-center">
+                                <div className="absolute inset-0 bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 z-50 flex flex-col justify-center items-center">
                                     <div className="w-16 h-16 border-4 border-teal-500 border-dashed rounded-full animate-spin"></div>
                                     <p className="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-200">Procesando horario...</p>
                                 </div>
@@ -817,6 +884,7 @@ function App() {
         </DndProvider>
     );
 }
+
 
 // --- Generic Form Component ---
 interface GenericFormField {

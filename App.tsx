@@ -91,7 +91,7 @@ const QuickStartGuide = () => (
     <div className="flex-grow flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-center p-8">
         <div className="max-w-2xl">
             <Icon name="calendar" className="w-16 h-16 text-teal-500 mx-auto mb-4" />
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">Bienvenido al Generador de Horarios Pro</h2>
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">Bienvenido al Generador de Horarios</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
                 Esta es una herramienta poderosa para planificar y generar horarios académicos.
                 Para empezar, utilice los controles en la parte superior para mostrar los paneles de planificación y de horarios.
@@ -767,7 +767,7 @@ function App() {
                     <header className="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center noprint shrink-0">
                         <div className="flex items-center space-x-3">
                             <Icon name="calendar" className="w-8 h-8 text-teal-600" />
-                            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Generador de Horarios Pro</h1>
+                            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Generador de Horarios</h1>
                         </div>
                         <div className="flex items-center space-x-4">
                             {/* Controles existentes */}

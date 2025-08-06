@@ -1377,13 +1377,13 @@ const SemesterPlanView: React.FC<{
                         <option value="A">Impar</option>
                         <option value="B">Par</option>
                     </select>
-                    <button onClick={() => downloadJson(semesterPlan, 'plan-funcionamiento')} className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
-                        <Icon name="download" />
-                    </button>
                     <input type="file" id="import-plan" onChange={onImport} accept=".json" style={{ display: 'none' }} />
                     <label htmlFor="import-plan" className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer">
                         <Icon name="upload" />
                     </label>
+                    <button onClick={() => downloadJson(semesterPlan, 'plan-funcionamiento')} className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                        <Icon name="download" />
+                    </button>
                 </div>
             </div>
             {semesterPlan.map(plan => {

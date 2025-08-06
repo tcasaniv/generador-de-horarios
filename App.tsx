@@ -144,13 +144,16 @@ function App() {
     const [isLeftPaneVisible, setIsLeftPaneVisible] = useState(true);
     const [isRightPaneVisible, setIsRightPaneVisible] = useState(true);
 
+    const loadDataCalled = useRef(false);
+
     const scheduleConflicts = useMemo(() => {
         return findAllConflicts(state);
     }, [state]);
     
     // --- Data Persistence ---
     useEffect(() => {
-        if (!isLoaded) {
+        if (!isLoaded && !loadDataCalled.current) {
+            loadDataCalled.current = true; // Prevent re-entry from StrictMode
             try {
                 const savedData = localStorage.getItem('timetableAppData');
                 if (savedData) {

@@ -95,7 +95,8 @@ function App() {
     const [state, setState] = useState<AppState>(initialState);
     const { courses, teachers, rooms, studentGroups, semesterPlan, schedule } = state;
 
-    const [activeTab, setActiveTab] = useState<Tab>(Tab.ASIGNATURAS);
+    const [leftPaneTab, setLeftPaneTab] = useState<Tab>(Tab.SEMESTER_PLAN);
+    const [rightPaneTab, setRightPaneTab] = useState<Tab>(Tab.TIMETABLE);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const [modalState, setModalState] = useState<{ type: string | null; data: any | null }>({ type: null, data: null });
@@ -235,7 +236,7 @@ function App() {
         }
 
         setIsLoading(false);
-        setActiveTab(Tab.TIMETABLE);
+        setRightPaneTab(Tab.TIMETABLE);
     };
 
     const handleGenerateSchedule = () => runScheduler(generateSchedule);
@@ -700,6 +701,30 @@ function App() {
         );
     };
 
+    const renderPane = (activeTab: Tab) => {
+        switch (activeTab) {
+            case Tab.ASIGNATURAS:
+                return <AsignaturasView courses={courses} onDelete={(id) => handleDelete('courses', id)} openModal={(data) => setModalState({ type: 'course', data })} onImport={(e) => handleImport(e, 'courses')} setCourses={(c) => setState(prev => ({...prev, courses: typeof c === 'function' ? c(prev.courses) : c}))} />;
+            case Tab.ROOMS:
+                return <RoomsView rooms={rooms} onDelete={(id) => handleDelete('rooms', id)} openModal={(data) => setModalState({ type: 'room', data })} onImport={(e) => handleImport(e, 'rooms')} />;
+            case Tab.TEACHERS:
+                return <TeachersView teachers={teachers} workload={teacherWorkload} onDelete={(id) => handleDelete('teachers', id)} openModal={(data) => setModalState({ type: 'teacher', data })} onImport={(e) => handleImport(e, 'teachers')} />;
+            case Tab.STUDENT_GROUPS:
+                return <StudentGroupsView studentGroups={studentGroups} onDelete={(id) => handleDelete('studentGroups', id)} openModal={(data) => setModalState({ type: 'studentGroup', data })} onImport={(e) => handleImport(e, 'studentGroups')} />;
+            case Tab.SEMESTER_PLAN:
+                return <SemesterPlanView courses={courses} teachers={teachers} rooms={rooms} semesterPlan={semesterPlan} setSemesterPlan={handleSemesterPlanUpdate} onDeleteGroup={handleDeleteSemesterGroup} onImport={(e) => handleImport(e, 'semesterPlan')} openModal={(type, data) => setModalState({ type, data })} />;
+            case Tab.TIMETABLE:
+                return <TimetableView state={state} onMoveEntry={handleMoveEntry} onTogglePin={togglePinEntry} onScheduleUpdate={handleScheduleUpdate} unscheduledUnits={unscheduledUnits} setUnscheduledUnits={setUnscheduledUnits} teacherWorkload={teacherWorkload} openEntryCreator={handleOpenEntryCreator} openEntryEditor={handleOpenEntryEditor} conflicts={scheduleConflicts} />;
+            case Tab.ATTENDANCE_REPORT:
+                return <AttendanceReportView state={state}/>;
+            default:
+                return null;
+        }
+    };
+
+    const planningTabs = [Tab.ASIGNATURAS, Tab.ROOMS, Tab.TEACHERS, Tab.STUDENT_GROUPS, Tab.SEMESTER_PLAN];
+    const scheduleTabs = [Tab.TIMETABLE, Tab.ATTENDANCE_REPORT];
+
     return (
         <DndProvider backend={HTML5Backend}>
             <div className="min-h-screen flex flex-col">
@@ -735,51 +760,57 @@ function App() {
                     </div>
                 </header>
 
-                <nav className="bg-gray-100 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 noprint">
-                    <div className="max-w-7xl mx-auto px-4">
-                        <div className="flex justify-start space-x-4 overflow-x-auto">
-                            {Object.values(Tab).map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`py-3 px-2 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === tab ? 'border-teal-500 text-teal-600 dark:border-teal-400 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'}`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
-                        </div>
+                <div className="flex-grow flex flex-col md:flex-row">
+                    {/* Left Pane */}
+                    <div className="w-full md:w-1/2 flex flex-col">
+                        <nav className="bg-gray-100 dark:bg-gray-800/50 border-b border-r border-gray-200 dark:border-gray-700 noprint">
+                            <div className="max-w-7xl mx-auto px-4">
+                                <div className="flex justify-start space-x-4 overflow-x-auto">
+                                    {planningTabs.map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setLeftPaneTab(tab)}
+                                            className={`py-3 px-2 border-b-2 font-medium text-sm whitespace-nowrap ${leftPaneTab === tab ? 'border-teal-500 text-teal-600 dark:border-teal-400 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'}`}
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </nav>
+                        <main className="flex-grow p-6 bg-gray-50 dark:bg-gray-900">
+                            {renderPane(leftPaneTab)}
+                        </main>
                     </div>
-                </nav>
 
-                <main className="flex-grow p-6 bg-gray-50 dark:bg-gray-900">
-                    {isLoading && (
-                        <div className="fixed inset-0 bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 z-50 flex flex-col justify-center items-center">
-                            <div className="w-16 h-16 border-4 border-teal-500 border-dashed rounded-full animate-spin"></div>
-                            <p className="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-200">Procesando horario...</p>
-                        </div>
-                    )}
-                    <div style={{ display: activeTab === Tab.ASIGNATURAS ? 'block' : 'none' }}>
-                        <AsignaturasView courses={courses} onDelete={(id) => handleDelete('courses', id)} openModal={(data) => setModalState({ type: 'course', data })} onImport={(e) => handleImport(e, 'courses')} setCourses={(c) => setState(prev => ({...prev, courses: typeof c === 'function' ? c(prev.courses) : c}))} />
+                    {/* Right Pane */}
+                    <div className="w-full md:w-1/2 flex flex-col">
+                        <nav className="bg-gray-100 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 noprint">
+                            <div className="max-w-7xl mx-auto px-4">
+                                <div className="flex justify-start space-x-4 overflow-x-auto">
+                                    {scheduleTabs.map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setRightPaneTab(tab)}
+                                            className={`py-3 px-2 border-b-2 font-medium text-sm whitespace-nowrap ${rightPaneTab === tab ? 'border-teal-500 text-teal-600 dark:border-teal-400 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'}`}
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </nav>
+                        <main className="flex-grow p-6 bg-gray-50 dark:bg-gray-900">
+                            {isLoading && (
+                                <div className="fixed inset-0 bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 z-50 flex flex-col justify-center items-center">
+                                    <div className="w-16 h-16 border-4 border-teal-500 border-dashed rounded-full animate-spin"></div>
+                                    <p className="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-200">Procesando horario...</p>
+                                </div>
+                            )}
+                            {renderPane(rightPaneTab)}
+                        </main>
                     </div>
-                    <div style={{ display: activeTab === Tab.ROOMS ? 'block' : 'none' }}>
-                         <RoomsView rooms={rooms} onDelete={(id) => handleDelete('rooms', id)} openModal={(data) => setModalState({ type: 'room', data })} onImport={(e) => handleImport(e, 'rooms')} />
-                    </div>
-                    <div style={{ display: activeTab === Tab.TEACHERS ? 'block' : 'none' }}>
-                         <TeachersView teachers={teachers} workload={teacherWorkload} onDelete={(id) => handleDelete('teachers', id)} openModal={(data) => setModalState({ type: 'teacher', data })} onImport={(e) => handleImport(e, 'teachers')} />
-                    </div>
-                    <div style={{ display: activeTab === Tab.STUDENT_GROUPS ? 'block' : 'none' }}>
-                         <StudentGroupsView studentGroups={studentGroups} onDelete={(id) => handleDelete('studentGroups', id)} openModal={(data) => setModalState({ type: 'studentGroup', data })} onImport={(e) => handleImport(e, 'studentGroups')} />
-                    </div>
-                    <div style={{ display: activeTab === Tab.SEMESTER_PLAN ? 'block' : 'none' }}>
-                         <SemesterPlanView courses={courses} teachers={teachers} rooms={rooms} semesterPlan={semesterPlan} setSemesterPlan={handleSemesterPlanUpdate} onDeleteGroup={handleDeleteSemesterGroup} onImport={(e) => handleImport(e, 'semesterPlan')} openModal={(type, data) => setModalState({ type, data })} />
-                    </div>
-                    <div style={{ display: activeTab === Tab.TIMETABLE ? 'block' : 'none' }}>
-                         <TimetableView state={state} onMoveEntry={handleMoveEntry} onTogglePin={togglePinEntry} onScheduleUpdate={handleScheduleUpdate} unscheduledUnits={unscheduledUnits} setUnscheduledUnits={setUnscheduledUnits} teacherWorkload={teacherWorkload} openEntryCreator={handleOpenEntryCreator} openEntryEditor={handleOpenEntryEditor} conflicts={scheduleConflicts} />
-                    </div>
-                    <div style={{ display: activeTab === Tab.ATTENDANCE_REPORT ? 'block' : 'none' }}>
-                        <AttendanceReportView state={state}/>
-                    </div>
-                </main>
+                </div>
                 
                 {renderModals()}
             </div>

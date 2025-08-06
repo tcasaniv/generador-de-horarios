@@ -1548,6 +1548,63 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
     );
 }
 
+const ConflictsView: React.FC<{ 
+    conflicts: ScheduleConflict[]; 
+    state: AppState;
+    onEntryClick: (entry: ScheduleEntry) => void;
+}> = ({ conflicts, state, onEntryClick }) => {
+    if (conflicts.length === 0) {
+        return null;
+    }
+
+    const getEntryDescription = (entryId: string) => {
+        const entry = state.schedule.find(e => e.id === entryId);
+        if (!entry) return `Entrada desconocida (${entryId})`;
+        const course = state.courses.find(c => c.id === entry.courseId);
+        const teacher = state.teachers.find(t => t.id === entry.teacherId);
+        const room = state.rooms.find(r => r.id === entry.roomId);
+        const time = TIME_SLOTS[entry.timeSlot] ? TIME_SLOTS[entry.timeSlot].split(' - ')[0] : 'Hora desc.';
+        return `${course?.name || 'Curso desc.'} (G${entry.studentGroupId.split('-')[1]}) con ${teacher?.name || 'Docente desc.'} en ${room?.name || 'Ambiente desc.'} el ${entry.day} a las ${time}`;
+    };
+
+    return (
+        <div className="noprint p-4 mb-4 bg-red-100 border-l-4 border-red-500 text-red-800 dark:bg-red-900/30 dark:text-red-200 rounded-r-lg" role="alert">
+            <div className="flex">
+                <Icon name="alert" className="w-5 h-5 mr-3 mt-1 flex-shrink-0" />
+                <div>
+                    <p className="font-bold">Se han detectado {conflicts.length} conflictos en el horario:</p>
+                    <ul className="list-disc list-inside mt-2 space-y-2 text-sm max-h-60 overflow-y-auto">
+                        {conflicts.map((conflict, index) => (
+                            <li key={index}>
+                                <span className="font-semibold">{conflict.message}</span>
+                                <ul className="list-['-_'] list-inside pl-4 mt-1 space-y-1">
+                                    {conflict.entryIds.map(entryId => {
+                                        const entry = state.schedule.find(e => e.id === entryId);
+                                        return (
+                                            <li key={entryId}>
+                                                {entry ? (
+                                                    <button 
+                                                        onClick={() => onEntryClick(entry)} 
+                                                        className="text-left hover:underline focus:outline-none focus:ring-2 focus:ring-red-400 rounded"
+                                                    >
+                                                        {getEntryDescription(entryId)}
+                                                    </button>
+                                                ) : (
+                                                    getEntryDescription(entryId)
+                                                )}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const TimetableView: React.FC<{
     state: AppState;
     onMoveEntry: (entryId: string, newDay: Day, newTimeSlot: number) => void;
@@ -1693,17 +1750,11 @@ const TimetableView: React.FC<{
                  <button onClick={handlePrint} className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">Imprimir</button>
             </div>
 
-            {conflicts.length > 0 && (
-                <div className="noprint p-4 bg-red-100 border-l-4 border-red-500 text-red-800 dark:bg-red-900/30 dark:text-red-200 rounded-r-lg" role="alert">
-                    <div className="flex">
-                        <Icon name="alert" className="w-5 h-5 mr-3 mt-1 flex-shrink-0" />
-                        <div>
-                            <p className="font-bold">Advertencia: Se han detectado conflictos en el horario.</p>
-                            <p className="text-sm">Los elementos con conflictos están resaltados. Pase el cursor sobre los elementos o iconos de advertencia para ver los detalles.</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConflictsView 
+                conflicts={conflicts} 
+                state={state}
+                onEntryClick={props.openEntryEditor}
+            />
             
             {props.unscheduledUnits.length > 0 && <UnscheduledListView units={props.unscheduledUnits} courses={state.courses} teachers={state.teachers} onDismiss={() => props.setUnscheduledUnits([])} />}
             

@@ -1548,6 +1548,202 @@ const StudentGroupAssignmentStatusView: React.FC<{ state: AppState; selectedId: 
     );
 }
 
+const TeacherAssignmentStatusView: React.FC<{ state: AppState; selectedId: string | null; }> = ({ state, selectedId }) => {
+    
+    const assignmentsForTeacher = useMemo(() => {
+        if (!selectedId) return [];
+    
+        const assignments: any[] = [];
+    
+        state.semesterPlan.forEach(planItem => {
+            if (!planItem.isActive) return;
+    
+            const course = state.courses.find(c => c.id === planItem.courseId);
+            if (!course) return;
+            
+            planItem.groups.forEach(group => {
+                (['theory', 'practice', 'lab', 'seminar'] as const).forEach(sessionType => {
+                    const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
+                    if (requiredHours === 0) return;
+
+                    group[sessionType].forEach((assignment, subIndex) => {
+                        if (assignment.teacherId !== selectedId) return;
+
+                        const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
+                        const scheduledEntries = state.schedule.filter(e => e.studentGroupId === studentGroupId && e.sessionType === sessionType);
+                        const studentGroup = state.studentGroups.find(sg => sg.year === getCourseYear(course.id) && sg.group === group.group);
+                        const room = state.rooms.find(r => r.id === assignment.roomId);
+                        
+                        const scheduledHoursCount = Math.max(scheduledEntries.length, assignment.manualSlots?.length || 0);
+
+                        assignments.push({
+                            key: `${studentGroupId}-${sessionType}`,
+                            course,
+                            studentGroup,
+                            defaultRoom: room,
+                            sessionType,
+                            studentGroupId,
+                            requiredHours,
+                            scheduledEntries,
+                            scheduledHoursCount,
+                            isPlaceholder: false,
+                            assignment,
+                        });
+                    });
+                });
+            });
+        });
+    
+        return assignments.sort((a,b) => a.course.name.localeCompare(b.course.name));
+    }, [state, selectedId]);
+
+    if (assignmentsForTeacher.length === 0 && selectedId) {
+        return <div className="mt-6 text-center text-gray-500 dark:text-gray-400 noprint">No hay cursos planificados para este docente.</div>;
+    }
+
+    return (
+        <div className="mt-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 rounded-lg noprint">
+            <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 mb-3">Plan de Cursos para el Docente</h3>
+            <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+                {assignmentsForTeacher.map(item => {
+                    const scheduledCount = item.scheduledHoursCount || 0;
+                    const isFullyScheduled = scheduledCount >= item.requiredHours;
+                    const statusColor = isFullyScheduled ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400';
+                    const statusIcon = isFullyScheduled ? '✓' : '…';
+                    const borderColor = isFullyScheduled ? 'border-green-500' : (scheduledCount > 0 ? 'border-amber-500' : 'border-red-500');
+
+                    return (
+                        <div key={item.key} className={`p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border-l-4 ${borderColor}`}>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold text-gray-900 dark:text-gray-100">{item.course.name}</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300 capitalize">{item.sessionType} - Grupo {item.studentGroupId.split('-')[1]}-{item.studentGroupId.split('-')[2]}</p>
+                                </div>
+                                <div className={`font-semibold text-sm ${statusColor} flex items-center`}>
+                                    <span className="text-lg mr-1 font-mono">{statusIcon}</span> {scheduledCount} / {item.requiredHours} horas
+                                </div>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                                <p><strong>Grupo:</strong> {item.studentGroup ? `Año ${item.studentGroup.year} - ${item.studentGroup.group}` : <span className="italic text-red-500">Sin Asignar</span>}</p>
+                                <p><strong>Ambiente (defecto):</strong> {item.defaultRoom?.name || <span className="italic text-red-500">Sin Asignar</span>}</p>
+                            </div>
+                            {item.scheduledEntries.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <p className="text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Horarios Programados:</p>
+                                    <ul className="text-xs space-y-1 text-gray-600 dark:text-gray-300 columns-2">
+                                        {item.scheduledEntries.map((e: ScheduleEntry) => {
+                                            const room = state.rooms.find(r => r.id === e.roomId);
+                                            return <li key={e.id}>{e.day.substring(0,3)} {TIME_SLOTS[e.timeSlot].split(' - ')[0]} en <strong>{room?.name || 'N/A'}</strong></li>
+                                        })}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    );
+}
+
+const RoomAssignmentStatusView: React.FC<{ state: AppState; selectedId: string | null; }> = ({ state, selectedId }) => {
+    
+    const assignmentsForRoom = useMemo(() => {
+        if (!selectedId) return [];
+    
+        const assignments: any[] = [];
+    
+        state.semesterPlan.forEach(planItem => {
+            if (!planItem.isActive) return;
+    
+            const course = state.courses.find(c => c.id === planItem.courseId);
+            if (!course) return;
+            
+            planItem.groups.forEach(group => {
+                (['theory', 'practice', 'lab', 'seminar'] as const).forEach(sessionType => {
+                    const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
+                    if (requiredHours === 0) return;
+
+                    group[sessionType].forEach((assignment, subIndex) => {
+                        if (assignment.roomId !== selectedId) return;
+
+                        const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
+                        const scheduledEntries = state.schedule.filter(e => e.studentGroupId === studentGroupId && e.sessionType === sessionType);
+                        const studentGroup = state.studentGroups.find(sg => sg.year === getCourseYear(course.id) && sg.group === group.group);
+                        const teacher = state.teachers.find(t => t.id === assignment.teacherId);
+                        
+                        const scheduledHoursCount = Math.max(scheduledEntries.length, assignment.manualSlots?.length || 0);
+
+                        assignments.push({
+                            key: `${studentGroupId}-${sessionType}`,
+                            course,
+                            studentGroup,
+                            teacher,
+                            sessionType,
+                            studentGroupId,
+                            requiredHours,
+                            scheduledEntries,
+                            scheduledHoursCount,
+                            isPlaceholder: false,
+                            assignment,
+                        });
+                    });
+                });
+            });
+        });
+    
+        return assignments.sort((a,b) => a.course.name.localeCompare(b.course.name));
+    }, [state, selectedId]);
+
+    if (assignmentsForRoom.length === 0 && selectedId) {
+        return <div className="mt-6 text-center text-gray-500 dark:text-gray-400 noprint">No hay cursos planificados para este ambiente.</div>;
+    }
+
+    return (
+        <div className="mt-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 rounded-lg noprint">
+            <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 mb-3">Plan de Cursos para el Ambiente</h3>
+            <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+                {assignmentsForRoom.map(item => {
+                    const scheduledCount = item.scheduledHoursCount || 0;
+                    const isFullyScheduled = scheduledCount >= item.requiredHours;
+                    const statusColor = isFullyScheduled ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400';
+                    const statusIcon = isFullyScheduled ? '✓' : '…';
+                    const borderColor = isFullyScheduled ? 'border-green-500' : (scheduledCount > 0 ? 'border-amber-500' : 'border-red-500');
+
+                    return (
+                        <div key={item.key} className={`p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border-l-4 ${borderColor}`}>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold text-gray-900 dark:text-gray-100">{item.course.name}</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300 capitalize">{item.sessionType} - Grupo {item.studentGroupId.split('-')[1]}-{item.studentGroupId.split('-')[2]}</p>
+                                </div>
+                                <div className={`font-semibold text-sm ${statusColor} flex items-center`}>
+                                    <span className="text-lg mr-1 font-mono">{statusIcon}</span> {scheduledCount} / {item.requiredHours} horas
+                                </div>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                                <p><strong>Grupo:</strong> {item.studentGroup ? `Año ${item.studentGroup.year} - ${item.studentGroup.group}` : <span className="italic text-red-500">Sin Asignar</span>}</p>
+                                <p><strong>Docente:</strong> {item.teacher?.name || <span className="italic text-red-500">Sin Asignar</span>}</p>
+                            </div>
+                            {item.scheduledEntries.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <p className="text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Horarios Programados:</p>
+                                    <ul className="text-xs space-y-1 text-gray-600 dark:text-gray-300 columns-2">
+                                        {item.scheduledEntries.map((e: ScheduleEntry) => {
+                                            const room = state.rooms.find(r => r.id === e.roomId);
+                                            return <li key={e.id}>{e.day.substring(0,3)} {TIME_SLOTS[e.timeSlot].split(' - ')[0]} en <strong>{room?.name || 'N/A'}</strong></li>
+                                        })}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    );
+}
+
 const ConflictsView: React.FC<{ 
     conflicts: ScheduleConflict[]; 
     state: AppState;
@@ -1775,11 +1971,9 @@ const TimetableView: React.FC<{
                            onOpenEditor={props.openEntryEditor}
                            conflicts={conflicts}
                         />
-                        {viewType === 'studentGroup' ? (
-                            <StudentGroupAssignmentStatusView state={state} selectedId={selectedId} />
-                        ) : (
-                             <UnassignedAssignmentsView assignments={unassignedAssignments} viewType={viewType as 'teacher' | 'room'} />
-                        )}
+                        {viewType === 'studentGroup' && <StudentGroupAssignmentStatusView state={state} selectedId={selectedId} />}
+                        {viewType === 'teacher' && <TeacherAssignmentStatusView state={state} selectedId={selectedId} />}
+                        {viewType === 'room' && <RoomAssignmentStatusView state={state} selectedId={selectedId} />}
                     </>
                 )}
             </div>

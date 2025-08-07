@@ -2152,7 +2152,7 @@ const TimetableView: React.FC<{
                     {viewType !== 'escuela' && (
                         <select id="view-type-items" value={selectedId || ''} onChange={e => setSelectedId(e.target.value)} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 min-w-[200px]">
                             {viewType === 'teacher' && teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            {viewType === 'room' && rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                            {viewType === 'room' && rooms.map(r => <option key={r.id} value={r.id}>{r.id} - {r.name}</option>)}
                             {viewType === 'studentGroup' && studentGroups.map(sg => <option key={sg.id} value={sg.id}>{`Año ${sg.year} - Grupo ${sg.group}`}</option>)}
                             {viewType === 'asignatura' && courses.map(c => {
                                 const course=state.semesterPlan.find(planItem => planItem.courseId === c.id);

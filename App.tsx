@@ -2410,10 +2410,19 @@ const EscuelaView: React.FC<{
 }> = ({ state, onTogglePin, onScheduleUpdate, openEntryEditor, teacherWorkload, conflicts }) => {
     const { schedule, courses, teachers, rooms, studentGroups, semesterPlan } = state;
     const [editingCell, setEditingCell] = useState<string | null>(null); // "entryId-field"
+    const [sortConfig, setSortConfig] = useState<SortConfig<any> | null>({ key: 'course.name', direction: 'ascending' });
 
     const handleCellUpdate = (entryId: string, field: keyof ScheduleEntry, value: any) => {
         onScheduleUpdate(entryId, field, value);
         setEditingCell(null);
+    };
+
+    const requestSort = (key: string) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
     };
 
     const scheduleData = useMemo(() => {
@@ -2495,20 +2504,23 @@ const EscuelaView: React.FC<{
             });
         });
 
-        rows.sort((a, b) => {
-            const courseNameA = a.course?.name || '';
-            const courseNameB = b.course?.name || '';
-            if (courseNameA < courseNameB) return -1;
-            if (courseNameA > courseNameB) return 1;
-            if (a.entry.studentGroupId < b.entry.studentGroupId) return -1;
-            if (a.entry.studentGroupId > b.entry.studentGroupId) return 1;
-            if (a.entry.timeSlot < b.entry.timeSlot) return -1;
-            if (a.entry.timeSlot > b.entry.timeSlot) return 1;
-            return 0;
-        });
+        if (sortConfig !== null) {
+            rows.sort((a, b) => {
+                const get = (obj: any, path: string): any => path.split('.').reduce((p, c) => (p && typeof p === 'object' && c in p) ? p[c] : undefined, obj);
+                const valA = get(a, sortConfig.key);
+                const valB = get(b, sortConfig.key);
+
+                if (valA === undefined || valA === null) return 1;
+                if (valB === undefined || valB === null) return -1;
+
+                if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+                return 0;
+            });
+        }
 
         return rows;
-    }, [schedule, courses, teachers, rooms, studentGroups, semesterPlan]);
+    }, [schedule, courses, teachers, rooms, studentGroups, semesterPlan, sortConfig]);
 
     // --- Helper function for cell merging ---
     const renderMergedCell = (
@@ -2557,13 +2569,41 @@ const EscuelaView: React.FC<{
     };
 
 
+    const headers = [
+        { label: '', key: null },
+        { label: 'COMP.', key: 'course.competencia' },
+        { label: 'CODIGO', key: 'course.id' },
+        { label: 'NOMBRE ASIGNATURA', key: 'course.name' },
+        { label: 'DPTO. ACADÉMICO', key: 'course.academicDepartments' },
+        { label: 'CRED.', key: 'course.credits' },
+        { label: 'GRUPO', key: 'entry.studentGroupId' },
+        { label: 'NOMBRE DEL DOCENTE', key: 'teacher.name' },
+        { label: 'TOTAL HORAS', key: 'teacher.id' }, // Placeholder for workload
+        { label: 'HT', key: 'course.theoryHours' },
+        { label: 'HP', key: 'course.practiceHours' },
+        { label: 'HL', key: 'course.labHours' },
+        { label: 'HS', key: 'course.seminarHours' },
+        { label: 'MODO ENSEÑANZA', key: 'subGroupAssignment.teachingMode' },
+        { label: 'AFORO', key: 'room.capacity' },
+        { label: 'CODIGO SUNEDU', key: 'room.suneduCode' },
+        { label: 'CODIGO INV.', key: 'room.inventoryCode' },
+        { label: 'NOMBRE AMBIENTE', key: 'room.name' },
+        { label: 'Horario', key: 'entry.timeSlot' },
+        ...DAYS_OF_WEEK.map(d => ({ label: d, key: null }))
+    ];
+
     return (
         <div className="overflow-x-auto">
             <table className="min-w-full text-xs border-collapse">
                 <thead className="bg-gray-100 dark:bg-gray-700">
                     <tr>
-                        {['', 'COMP.', 'CODIGO', 'NOMBRE ASIGNATURA', 'DPTO. ACADÉMICO', 'CRED.', 'GRUPO', 'NOMBRE DEL DOCENTE', 'TOTAL HORAS', 'HT', 'HP', 'HL', 'HS', 'MODO ENSEÑANZA', 'AFORO', 'CODIGO SUNEDU', 'CODIGO INV.', 'NOMBRE AMBIENTE', 'Horario', ...DAYS_OF_WEEK].map(h => (
-                            <th key={h} className="p-2 border dark:border-gray-600 font-medium text-gray-500 dark:text-gray-300 whitespace-nowrap text-center">{h}</th>
+                        {headers.map(({ label, key }) => (
+                            <th key={label} className="p-2 border dark:border-gray-600 font-medium text-gray-500 dark:text-gray-300 whitespace-nowrap text-center cursor-pointer" onClick={() => key && requestSort(key)}>
+                                <div className="flex items-center justify-center">
+                                    {label}
+                                    {sortConfig?.key === key && <Icon name={sortConfig.direction === 'ascending' ? 'chevron-up' : 'chevron-down'} className="w-4 h-4 ml-1" />}
+                                </div>
+                            </th>
                         ))}
                     </tr>
                 </thead>

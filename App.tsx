@@ -1860,37 +1860,44 @@ const CourseAssignmentStatusView: React.FC<{ state: AppState; selectedId: string
         if (!selectedId) return [];
 
         const assignments: any[] = [];
-        const planItem = state.semesterPlan.find(p => p.courseId === selectedId);
-        if (!planItem || !planItem.isActive) return [];
 
-        const course = state.courses.find(c => c.id === selectedId);
-        if (!course) return [];
+        state.semesterPlan.forEach(planItem => {
+            if (!planItem.isActive) return [];
 
-        planItem.groups.forEach(group => {
-            (['theory', 'practice', 'lab', 'seminar'] as const).forEach(sessionType => {
-                const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
-                if (requiredHours === 0) return;
+            // const course = state.courses.find(c => c.id === selectedId);
+            const course = state.courses.find(c => c.id === planItem.courseId);
+            if (!course) return [];
 
-                group[sessionType].forEach((assignment, subIndex) => {
-                    const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
-                    const scheduledEntries = state.schedule.filter(e => e.studentGroupId === studentGroupId && e.sessionType === sessionType);
-                    const teacher = state.teachers.find(t => t.id === assignment.teacherId);
-                    const room = state.rooms.find(r => r.id === assignment.roomId);
+            planItem.groups.forEach(group => {
+                (['theory', 'practice', 'lab', 'seminar'] as const).forEach(sessionType => {
+                    const requiredHours = (course[`${sessionType}Hours` as keyof Course] as number) || 0;
+                    if (requiredHours === 0) return;
 
-                    const scheduledHoursCount = Math.max(scheduledEntries.length, assignment.manualSlots?.length || 0);
+                    group[sessionType].forEach((assignment, subIndex) => {
+                        if (assignment.courseId !== selectedId) return;
 
-                    assignments.push({
-                        key: `${studentGroupId}-${sessionType}`,
-                        course,
-                        teacher,
-                        defaultRoom: room,
-                        sessionType,
-                        studentGroupId,
-                        requiredHours,
-                        scheduledEntries,
-                        scheduledHoursCount,
-                        isPlaceholder: false,
-                        assignment,
+                        const studentGroupId = `${course.id}-${group.group}-${subIndex + 1}`;
+                        const scheduledEntries = state.schedule.filter(e => e.studentGroupId === studentGroupId && e.sessionType === sessionType);
+                        const studentGroup = state.studentGroups.find(sg => sg.year === getCourseYear(course.id) && sg.group === group.group);
+                        const teacher = state.teachers.find(t => t.id === assignment.teacherId);
+                        const room = state.rooms.find(r => r.id === assignment.roomId);
+
+                        const scheduledHoursCount = Math.max(scheduledEntries.length, assignment.manualSlots?.length || 0);
+
+                        assignments.push({
+                            key: `${studentGroupId}-${sessionType}`,
+                            course,
+                            studentGroup,
+                            defaultRoom: room,
+                            teacher,
+                            sessionType,
+                            studentGroupId,
+                            requiredHours,
+                            scheduledEntries,
+                            scheduledHoursCount,
+                            isPlaceholder: false,
+                            assignment,
+                        });
                     });
                 });
             });
@@ -2143,11 +2150,14 @@ const TimetableView: React.FC<{
                         <option value="asignatura">Asignatura</option>
                     </select>
                     {viewType !== 'escuela' && (
-                        <select value={selectedId || ''} onChange={e => setSelectedId(e.target.value)} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 min-w-[200px]">
+                        <select id="view-type-items" value={selectedId || ''} onChange={e => setSelectedId(e.target.value)} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 min-w-[200px]">
                             {viewType === 'teacher' && teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             {viewType === 'room' && rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                             {viewType === 'studentGroup' && studentGroups.map(sg => <option key={sg.id} value={sg.id}>{`Año ${sg.year} - Grupo ${sg.group}`}</option>)}
-                            {viewType === 'asignatura' && courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {viewType === 'asignatura' && courses.map(c => {
+                                const course=state.semesterPlan.find(planItem => planItem.courseId === c.id);
+                                if (course.isActive) return <option key={c.id} value={c.id}>{c.id} - {c.name}</option>;
+                            })}
                         </select>
                     )}
                 </div>

@@ -97,6 +97,7 @@ export enum Tab {
   SEMESTER_PLAN = "Plan de Funcionamiento",
   TIMETABLE = "Horarios",
   ATTENDANCE_REPORT = "Parte de Asistencia",
+  SCHOOL_SCHEDULE = "Horario por Escuela",
 }
 
 export type Day = "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes";

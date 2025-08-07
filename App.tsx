@@ -754,13 +754,15 @@ function App() {
                 return <TimetableView state={state} onMoveEntry={handleMoveEntry} onTogglePin={togglePinEntry} onScheduleUpdate={handleScheduleUpdate} unscheduledUnits={unscheduledUnits} setUnscheduledUnits={setUnscheduledUnits} teacherWorkload={teacherWorkload} openEntryCreator={handleOpenEntryCreator} openEntryEditor={handleOpenEntryEditor} conflicts={scheduleConflicts} />;
             case Tab.ATTENDANCE_REPORT:
                 return <AttendanceReportView state={state} />;
+            case Tab.SCHOOL_SCHEDULE:
+                return <SchoolScheduleView state={state} />;
             default:
                 return null;
         }
     };
 
     const planningTabs = [Tab.ASIGNATURAS, Tab.ROOMS, Tab.TEACHERS, Tab.STUDENT_GROUPS, Tab.SEMESTER_PLAN];
-    const scheduleTabs = [Tab.TIMETABLE, Tab.ATTENDANCE_REPORT];
+    const scheduleTabs = [Tab.TIMETABLE, Tab.ATTENDANCE_REPORT, Tab.SCHOOL_SCHEDULE];
 
     const leftPaneClass = isLeftPaneVisible ? (isRightPaneVisible ? "w-full md:w-1/2" : "w-full") : "hidden";
     const rightPaneClass = isRightPaneVisible ? (isLeftPaneVisible ? "w-full md:w-1/2" : "w-full") : "hidden";
@@ -1478,6 +1480,200 @@ const SubgroupEditor: React.FC<{
                     <Icon name="calendar" className="w-4 h-4" />
                     <span>Horas ({subGroup.manualSlots?.length || 0}/{requiredHours})</span>
                 </button>
+            </div>
+        </div>
+    );
+};
+
+const SchoolScheduleView: React.FC<{ state: AppState }> = ({ state }) => {
+    const { courses, teachers, rooms, studentGroups, semesterPlan, schedule } = state;
+
+    const processedData = useMemo(() => {
+        const data: any[] = [];
+        if (!semesterPlan) return [];
+
+        const activePlans = semesterPlan.filter(p => p.isActive);
+
+        for (const plan of activePlans) {
+            const course = courses.find(c => c.id === plan.courseId);
+            if (!course) continue;
+
+            for (const group of plan.groups) {
+                const groupLetter = group.group;
+                const studentGroup = studentGroups.find(sg => sg.year === getCourseYear(course.id) && sg.group === groupLetter);
+                const studentGroupIdPrefix = `${course.id}-${groupLetter}`;
+                const groupScheduleEntries = schedule.filter(e => e.studentGroupId.startsWith(studentGroupIdPrefix + '-'));
+
+                if (groupScheduleEntries.length === 0) continue;
+
+                const groupTeachers = new Set<string>();
+                const groupRooms = new Set<string>();
+                const groupRoomCapacities = new Set<number>();
+                const scheduleByDay: { [key: string]: { timeSlot: number }[] } = {};
+
+                for (const entry of groupScheduleEntries) {
+                    const teacher = teachers.find(t => t.id === entry.teacherId);
+                    if (teacher) groupTeachers.add(teacher.name);
+
+                    const room = rooms.find(r => r.id === entry.roomId);
+                    if (room) {
+                        groupRooms.add(room.name);
+                        groupRoomCapacities.add(room.capacity);
+                    }
+
+                    if (!scheduleByDay[entry.day]) {
+                        scheduleByDay[entry.day] = [];
+                    }
+                    scheduleByDay[entry.day].push({ timeSlot: entry.timeSlot });
+                }
+
+                const finalSchedule: { [key: string]: { start: string, end: string }[] } = {};
+                for (const day of DAYS_OF_WEEK) {
+                    if (scheduleByDay[day]) {
+                        const slots = scheduleByDay[day].sort((a, b) => a.timeSlot - b.timeSlot);
+                        if (slots.length > 0) {
+                            const merged = [];
+                            let currentBlock = { startSlot: slots[0].timeSlot, endSlot: slots[0].timeSlot };
+
+                            for (let i = 1; i < slots.length; i++) {
+                                if (slots[i].timeSlot === currentBlock.endSlot + 1) {
+                                    currentBlock.endSlot = slots[i].timeSlot;
+                                } else {
+                                    merged.push({
+                                        start: TIME_SLOTS[currentBlock.startSlot].split(' - ')[0],
+                                        end: TIME_SLOTS[currentBlock.endSlot].split(' - ')[1]
+                                    });
+                                    currentBlock = { startSlot: slots[i].timeSlot, endSlot: slots[i].timeSlot };
+                                }
+                            }
+                            merged.push({
+                                start: TIME_SLOTS[currentBlock.startSlot].split(' - ')[0],
+                                end: TIME_SLOTS[currentBlock.endSlot].split(' - ')[1]
+                            });
+                            finalSchedule[day] = merged;
+                        }
+                    }
+                }
+
+                const totalHours = (course.theoryHours || 0) + (course.practiceHours || 0) + (course.labHours || 0) + (course.seminarHours || 0) + (course.theoryPracticeHours || 0);
+
+                data.push({
+                    comp: course.competencia || '',
+                    courseCode: course.id,
+                    courseName: course.name,
+                    departments: course.academicDepartments || [],
+                    credits: course.credits,
+                    group: groupLetter,
+                    teachers: Array.from(groupTeachers),
+                    totalHours: totalHours,
+                    theoryHours: course.theoryHours || 0,
+                    practiceHours: course.practiceHours || 0,
+                    theoryPracticeHours: course.theoryPracticeHours || 0,
+                    seminarHours: course.seminarHours || 0,
+                    labHours: course.labHours || 0,
+                    rooms: Array.from(groupRooms),
+                    capacity: Array.from(groupRoomCapacities).join(' / '),
+                    enrolled: studentGroup ? studentGroup.studentCount : 0,
+                    slots: Array.from(groupRoomCapacities).join(' / '), // Assumption
+                    schedule: finalSchedule,
+                });
+            }
+        }
+
+        data.sort((a, b) => {
+            if (a.courseCode < b.courseCode) return -1;
+            if (a.courseCode > b.courseCode) return 1;
+            if (a.group < b.group) return -1;
+            if (a.group > b.group) return 1;
+            return 0;
+        });
+
+        return data;
+    }, [courses, teachers, rooms, studentGroups, semesterPlan, schedule]);
+
+    return (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+            <div className="text-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Plan de Funcionamiento - Docentes - Horarios</h3>
+                <p className="text-gray-600 dark:text-gray-400">2025-A</p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-400 dark:border-gray-600 text-xs text-center">
+                    <thead>
+                        <tr className="bg-gray-200 dark:bg-gray-700 font-bold">
+                            <th rowSpan={2} className="border p-1">Comp.</th>
+                            <th rowSpan={2} className="border p-1">Codigo</th>
+                            <th rowSpan={2} className="border p-1">Asignatura</th>
+                            <th rowSpan={2} className="border p-1">Departamento(s)</th>
+                            <th rowSpan={2} className="border p-1">Cred.</th>
+                            <th rowSpan={2} className="border p-1">Grupo</th>
+                            <th rowSpan={2} className="border p-1">Docente(s)</th>
+                            <th colSpan={6} className="border p-1">Horas Semanales</th>
+                            <th rowSpan={2} className="border p-1">Aula</th>
+                            <th rowSpan={2} className="border p-1">Aforo</th>
+                            <th rowSpan={2} className="border p-1">Matr.</th>
+                            <th rowSpan={2} className="border p-1">Cupos</th>
+                            <th colSpan={6} className="border p-1">Horario(Horas de Inicio y Termino)</th>
+                        </tr>
+                        <tr className="bg-gray-200 dark:bg-gray-700 font-bold">
+                            <th className="border p-1">Total</th>
+                            <th className="border p-1">HT</th>
+                            <th className="border p-1">HP</th>
+                            <th className="border p-1">HTP</th>
+                            <th className="border p-1">HS</th>
+                            <th className="border p-1">HL</th>
+                            <th className="border p-1"></th>
+                            <th className="border p-1">Lunes</th>
+                            <th className="border p-1">Martes</th>
+                            <th className="border p-1">Miercoles</th>
+                            <th className="border p-1">Jueves</th>
+                            <th className="border p-1">Viernes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {processedData.map((row, index) => (
+                            <React.Fragment key={`${row.courseCode}-${row.group}`}>
+                                <tr className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
+                                    <td rowSpan={2} className="border p-1">{row.comp}</td>
+                                    <td rowSpan={2} className="border p-1">{row.courseCode}</td>
+                                    <td rowSpan={2} className="border p-1 text-left">{row.courseName}</td>
+                                    <td rowSpan={2} className="border p-1">
+                                        {row.departments.map((d: string, i: number) => <div key={i}>{d}</div>)}
+                                    </td>
+                                    <td rowSpan={2} className="border p-1">{row.credits}</td>
+                                    <td rowSpan={2} className="border p-1">{row.group}</td>
+                                    <td rowSpan={2} className="border p-1 text-left">
+                                        {row.teachers.map((t: string, i: number) => <div key={i}>{t}</div>)}
+                                    </td>
+                                    <td rowSpan={2} className="border p-1">{row.totalHours.toFixed(2)}</td>
+                                    <td rowSpan={2} className="border p-1">{row.theoryHours.toFixed(2)}</td>
+                                    <td rowSpan={2} className="border p-1">{row.practiceHours.toFixed(2)}</td>
+                                    <td rowSpan={2} className="border p-1">{row.theoryPracticeHours.toFixed(2)}</td>
+                                    <td rowSpan={2} className="border p-1">{row.seminarHours.toFixed(2)}</td>
+                                    <td rowSpan={2} className="border p-1">{row.labHours.toFixed(2)}</td>
+                                    <td rowSpan={2} className="border p-1">{row.rooms.join(' / ')}</td>
+                                    <td rowSpan={2} className="border p-1">{row.capacity}</td>
+                                    <td rowSpan={2} className="border p-1">{row.enrolled}</td>
+                                    <td rowSpan={2} className="border p-1">{row.slots}</td>
+                                    <td className="border p-1 font-bold">De:</td>
+                                    {DAYS_OF_WEEK.map(day => (
+                                        <td key={day} className="border p-1">
+                                            {row.schedule[day]?.map((s: {start: string}, i: number) => <div key={i}>{s.start}</div>)}
+                                        </td>
+                                    ))}
+                                </tr>
+                                <tr className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
+                                    <td className="border p-1 font-bold">A:</td>
+                                    {DAYS_OF_WEEK.map(day => (
+                                        <td key={day} className="border p-1">
+                                            {row.schedule[day]?.map((s: {end: string}, i: number) => <div key={i}>{s.end}</div>)}
+                                        </td>
+                                    ))}
+                                </tr>
+                            </React.Fragment>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

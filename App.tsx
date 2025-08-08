@@ -1042,7 +1042,7 @@ const DataTableView = <T extends { id: string }>({ title, columns, data, onDelet
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{title}</h2>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 noprint">
                     <div className="relative">
                         <input
                             type="text"
@@ -1084,7 +1084,7 @@ const DataTableView = <T extends { id: string }>({ title, columns, data, onDelet
                                     </div>
                                 </th>
                             ))}
-                            <th scope="col" className="relative px-6 py-3">
+                            <th scope="col" className="relative px-6 py-3 noprint">
                                 <span className="sr-only">Acciones</span>
                             </th>
                         </tr>
@@ -1097,7 +1097,7 @@ const DataTableView = <T extends { id: string }>({ title, columns, data, onDelet
                                         {Array.isArray(item[col.key]) ? (item[col.key] as any[]).join(', ') : String(item[col.key] ?? '')}
                                     </td>
                                 ))}
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium noprint">
                                     <button onClick={() => openModal(item)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4">
                                         <Icon name="pencil" />
                                     </button>

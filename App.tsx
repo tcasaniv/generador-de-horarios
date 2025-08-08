@@ -767,6 +767,7 @@ function App() {
     const leftPaneClass = isLeftPaneVisible ? (isRightPaneVisible ? "w-full md:w-1/2" : "w-full") : "hidden";
     const rightPaneClass = isRightPaneVisible ? (isLeftPaneVisible ? "w-full md:w-1/2" : "w-full") : "hidden";
     const mobilePaneContainerClass = isLeftPaneVisible && isRightPaneVisible ? "h-1/2" : "h-full";
+    const handlePrint = () => window.print();
 
     return (
         <DndProvider backend={HTML5Backend}>
@@ -802,6 +803,7 @@ function App() {
                                     <Icon name="brain" className="w-5 h-5" />
                                     <span>{isLoading ? 'Generando...' : 'Generar'}</span>
                                 </button>
+                                <button onClick={handlePrint} className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">Imprimir</button>
                             </div>
                             <button onClick={() => setIsHeaderVisible(false)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Ocultar cabecera">
                                 <Icon name="chevron-up" />
@@ -810,7 +812,7 @@ function App() {
                     </header>
                 )}
 
-                <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+                <div className="flex-grow flex flex-col md:flex-row overflow-hidden printable-area">
                     {!isLeftPaneVisible && !isRightPaneVisible && (
                         <div className="flex-grow flex flex-col items-center justify-center">
                             {!isHeaderVisible && (
@@ -1689,13 +1691,14 @@ const SchoolScheduleView: React.FC<{ state: AppState }> = ({ state }) => {
         const reprogrammedPlans = semesterPlan.filter(p => p.isActive && p.isReprogrammed);
         return processScheduleForSchoolView(reprogrammedPlans, state);
     }, [semesterPlan, state]);
+    
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg space-y-8">
             <div>
                 <div className="text-center mb-4">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Plan de Funcionamiento - Docentes - Horarios</h3>
-                    <p className="text-gray-600 dark:text-gray-400">2025-A</p>
+                    <h3 contenteditable className="text-xl font-bold text-gray-800 dark:text-gray-100">Plan de Funcionamiento 2025-B</h3>
+                    <p contenteditable className="text-gray-600 dark:text-gray-400">Escuela Profesional de Ingeniería en Telecomunicaciones</p>
                 </div>
                 <SchoolScheduleTable data={processedData} />
             </div>
@@ -2345,8 +2348,6 @@ const TimetableView: React.FC<{
         return unassigned;
     }, [selectedId, viewType, state]);
 
-    const handlePrint = () => window.print();
-
     const filteredEntries = useMemo(() => {
         if (!selectedId || viewType === 'escuela') return [];
         return state.schedule.filter(e => {
@@ -2366,8 +2367,11 @@ const TimetableView: React.FC<{
 
     return (
         <div className="space-y-4">
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex justify-between items-center noprint">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex justify-between items-center">
                 <div className="flex items-center space-x-4">
+                    <div className="hidden printable-block">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Horario </h3>
+                    </div>
                     <label htmlFor="view-type" className="font-medium">Ver por:</label>
                     <select id="view-type" value={viewType} onChange={e => {
                         setViewType(e.target.value as any);
@@ -2391,7 +2395,6 @@ const TimetableView: React.FC<{
                         </select>
                     )}
                 </div>
-                <button onClick={handlePrint} className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">Imprimir</button>
             </div>
 
             <ConflictsView
@@ -2620,7 +2623,7 @@ const ScheduleCard: React.FC<{
             <div className="text-gray-500 dark:text-gray-400 font-semibold text-center">{entry.sessionType ? sessionTypeNames[entry.sessionType] : 'Sin tipo de hora'}</div>
             <div className="text-gray-600 dark:text-gray-400 truncate text-center">{teacherShortName}</div>
             <div className="text-gray-500 dark:text-gray-400 font-semibold text-center">{room?.name || 'Sin Ambiente'}</div>
-            <div className="absolute top-1 right-1 flex items-center space-x-1">
+            <div className="absolute top-1 right-1 flex items-center space-x-1 noprint">
                 {entryConflicts.length > 0 && <Icon name="alert" className="w-3.5 h-3.5 text-red-500" />}
                 <button onClick={(e) => { e.stopPropagation(); onTogglePin(entry.id); }} className="p-0.5 rounded-full hover:bg-black/10">
                     <Icon name={entry.isPinned ? 'lock' : 'lock-open'} className={`w-3 h-3 ${entry.isPinned ? 'text-rose-600' : 'text-gray-500'}`} />
@@ -3091,8 +3094,6 @@ const AttendanceReportView: React.FC<{ state: AppState }> = ({ state }) => {
             .sort((a, b) => a.timeSlot - b.timeSlot);
     }, [selectedDay, schedule]);
 
-    const handlePrint = () => window.print();
-
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
             <div className="flex justify-between items-center mb-6 noprint">
@@ -3107,7 +3108,6 @@ const AttendanceReportView: React.FC<{ state: AppState }> = ({ state }) => {
                     >
                         {DAYS_OF_WEEK.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
-                    <button onClick={handlePrint} className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">Imprimir</button>
                 </div>
             </div>
 
